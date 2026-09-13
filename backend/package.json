@@ -4,18 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/server.js",
     "lint": "eslint . && prettier --check .",
     "lint:fix": "eslint --fix . && prettier --write .",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "@google/genai": "^2.22.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "zod": "^4.6.5",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.5.1",
     "eslint": "^10.10.0",
