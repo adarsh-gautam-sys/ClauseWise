@@ -9,6 +9,8 @@
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import { logger } from "./lib/logger.js";
+import { documentsRouter } from "./routes/documents.js";
+import { AppError } from "./lib/textExtractor.js";
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,8 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+app.use("/api/documents", documentsRouter);
+
 // ── Centralized error handler ─────────────────────────────────────────────────
 
 /**
@@ -65,20 +69,17 @@ app.get("/health", (_req: Request, res: Response) => {
  * Never leaks stack traces or internal messages to the client per AGENTS.md.
  */
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // AppErrors carry a user-safe message — surface it directly.
+  if (err instanceof AppError) {
+    if (err.status >= 500) logger.error("AppError 5xx", err);
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+
   logger.error("Unhandled error", err);
 
-  const status =
-    err != null &&
-    typeof err === "object" &&
-    "status" in err &&
-    typeof (err as { status: unknown }).status === "number"
-      ? (err as { status: number }).status
-      : 500;
-
-  // Never expose internals: always return a generic client message.
-  res.status(status).json({
-    error: status < 500 ? "Bad request" : "An unexpected error occurred. Please try again.",
-  });
+  // Unknown errors: never leak internals to the client.
+  res.status(500).json({ error: "An unexpected error occurred. Please try again." });
 });
 
 export default app;
