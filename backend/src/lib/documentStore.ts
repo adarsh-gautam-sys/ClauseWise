@@ -10,6 +10,7 @@
  */
 
 import type { Classification } from "../prompts/classify.js";
+import type { AnalysisResponse } from "../prompts/analyze.js";
 
 /** A single chunk of text derived from a document. */
 export interface Chunk {
@@ -30,6 +31,8 @@ export interface StoredDocument {
   charCount: number;
   /** Classification result — populated by POST /:id/classify. */
   classification?: Classification;
+  /** Clause analysis result — populated by POST /:id/analyze. */
+  analysis?: AnalysisResponse;
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -98,6 +101,17 @@ export function setClassification(documentId: string, classification: Classifica
   const doc = store.get(documentId);
   if (doc) {
     doc.classification = classification;
+  }
+}
+
+/**
+ * Attach a clause analysis result to an already-stored document.
+ * No-op if the document has already expired or was never stored.
+ */
+export function setAnalysis(documentId: string, analysis: AnalysisResponse): void {
+  const doc = store.get(documentId);
+  if (doc) {
+    doc.analysis = analysis;
   }
 }
 

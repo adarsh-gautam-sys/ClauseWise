@@ -15,14 +15,34 @@
  */
 
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { readFile } from "node:fs/promises";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import rateLimit from "express-rate-limit";
 import { ALLOWED_MIME_TYPES, AppError, extractText } from "../lib/textExtractor.js";
 import { chunkText, previewText } from "../lib/chunker.js";
-import { storeDocument, getDocument, setClassification } from "../lib/documentStore.js";
+import {
+  storeDocument,
+  getDocument,
+  setClassification,
+  setAnalysis,
+} from "../lib/documentStore.js";
 import { generateStructured } from "../services/geminiClient.js";
 import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
+import {
+  buildAnalyzePrompt,
+  analysisResponseSchema,
+  type AnalysisResponse,
+} from "../prompts/analyze.js";
+import type { DocumentType } from "../prompts/classify.js";
+
+// ── Resolve path to reference-clauses/ ───────────────────────────────────────
+// reference-clauses/ lives at the repo root (two levels above src/routes/).
+// __dirname is not available in ES modules, so we derive it from import.meta.url.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REFERENCE_CLAUSES_DIR = join(__dirname, "../../../reference-clauses");
 
 export const documentsRouter = Router();
 
@@ -286,3 +306,171 @@ documentsRouter.use((err: unknown, _req: Request, res: Response, next: NextFunct
   // Not a multer error — pass through to app-level handler.
   next(err);
 });
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Load and parse a reference-clauses JSON file for the given document type.
+ * Returns an empty object if the file does not exist or cannot be parsed.
+ * We intentionally never throw here — a missing reference file degrades
+ * gracefully (severity calibration is skipped, not a hard failure).
+ */
+async function loadReferenceClauses(documentType: DocumentType): Promise<Record<string, unknown>> {
+  const filePath = join(REFERENCE_CLAUSES_DIR, `${documentType}.json`);
+  try {
+    const raw = await readFile(filePath, "utf-8");
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    // ENOENT (file not found) or JSON parse error — graceful fallback.
+    return {};
+  }
+}
+
+/**
+ * Call generateStructured and validate against analysisResponseSchema.
+ * Retries once on a malformed or schema-invalid response, as required by
+ * AGENTS.md ("reject and retry once on a malformed response").
+ *
+ * @throws AppError 502 if both the original call and the retry produce an
+ *                      invalid response.
+ */
+async function generateAndValidateAnalysis(prompt: string): Promise<AnalysisResponse> {
+  async function attempt(): Promise<AnalysisResponse | null> {
+    const raw = await generateStructured(prompt, analysisResponseSchema);
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null; // Malformed JSON — signal retry.
+    }
+
+    const result = analysisResponseSchema.safeParse(parsed);
+    if (!result.success) {
+      return null; // Valid JSON but schema mismatch — signal retry.
+    }
+    return result.data;
+  }
+
+  // First attempt.
+  const first = await attempt();
+  if (first !== null) return first;
+
+  // Retry once (AGENTS.md requirement).
+  const second = await attempt();
+  if (second !== null) return second;
+
+  throw new AppError(
+    502,
+    "Analysis service returned an invalid response after retry. Please try again.",
+  );
+}
+
+// ── Analyze rate limiter ───────────────────────────────────────────────────────
+
+/**
+ * 3 analysis calls per IP per minute.
+ * Analysis is the most token-intensive call (full document + reference clauses);
+ * a tighter rate limit protects free-tier quota and prevents abuse.
+ */
+const analyzeRateLimit = rateLimit({
+  windowMs: 60 * 1_000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many analysis requests. Please wait a moment before trying again." },
+});
+
+// ── Analyze route ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/documents/:id/analyze
+ *
+ * Requires the document to already be classified (POST /:id/classify first).
+ * Returns 400 if classification is missing.
+ *
+ * Loads curated reference-clauses/<type>.json for severity calibration.
+ * Calls Gemini once to extract all clauses AND generate the summary.
+ * Validates the response with Zod; retries once if the response is malformed.
+ *
+ * Success response (200):
+ *   {
+ *     "documentId": "<uuid>",
+ *     "document_type": "nda",
+ *     "summary": "This is a mutual NDA between...",
+ *     "clauses": [
+ *       {
+ *         "clause_id": "CLAUSE_1",
+ *         "section_reference": "Section 1 — Definitions",
+ *         "plain_language_summary": "...",
+ *         "tag": "obligation",
+ *         "severity": "low",
+ *         "why_it_matters": "..."
+ *       },
+ *       ...
+ *     ]
+ *   }
+ */
+documentsRouter.post(
+  "/:id/analyze",
+  analyzeRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params as { id: string };
+
+      // ── Retrieve document ────────────────────────────────────────────────────
+
+      const doc = getDocument(id);
+      if (!doc) {
+        throw new AppError(
+          404,
+          "Document not found or has expired. Please upload the document again.",
+        );
+      }
+
+      // ── Classification pre-check ─────────────────────────────────────────────
+      // Analysis requires the document type to be known, both to select the
+      // correct reference-clauses file and to give the model the right context.
+
+      if (!doc.classification) {
+        throw new AppError(
+          400,
+          "Document has not been classified yet. Call POST /:id/classify before POST /:id/analyze.",
+        );
+      }
+
+      const { document_type } = doc.classification;
+
+      // ── Load reference clauses (severity calibration) ────────────────────────
+
+      const referenceClauses = await loadReferenceClauses(document_type);
+
+      // ── Build prompt (template in prompts/analyze.ts per AGENTS.md) ──────────
+
+      const prompt = buildAnalyzePrompt(doc.fullText, document_type, referenceClauses);
+
+      // ── Call Gemini (with one retry on malformed response per AGENTS.md) ─────
+
+      const analysis = await generateAndValidateAnalysis(prompt);
+
+      // ── Persist on the document record ───────────────────────────────────────
+
+      setAnalysis(id, analysis);
+
+      // ── Respond ──────────────────────────────────────────────────────────────
+
+      res.status(200).json({
+        documentId: id,
+        document_type,
+        summary: analysis.summary,
+        clauses: analysis.clauses,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);

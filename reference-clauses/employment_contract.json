@@ -1,0 +1,46 @@
+{
+  "_note": "STARTING POINT — curated by ClauseWise maintainers. Review and extend before each release. Not legal advice; used only for severity comparison within the tool.",
+  "document_type": "employment_contract",
+  "typical_patterns": [
+    {
+      "topic": "notice_period",
+      "typical": "1–3 months by either party depending on seniority. Should be mutual (same for employer and employee).",
+      "red_flags": ["employee notice longer than employer notice", "notice exceeds 6 months", "employer can waive notice and pay in lieu but employee cannot", "no notice provision at all"]
+    },
+    {
+      "topic": "non_compete",
+      "typical": "Reasonable geographic and time scope (e.g., 6–12 months, same industry, roles actually competed against). Courts often void overly broad clauses.",
+      "red_flags": ["duration exceeds 2 years", "worldwide or unlimited geography", "covers any industry not just direct competitors", "employee cannot earn a living in their field"]
+    },
+    {
+      "topic": "ip_assignment",
+      "typical": "Work created in scope of employment and using company resources belongs to employer. Personal projects on personal time with no company resources excluded.",
+      "red_flags": ["assigns all inventions regardless of use of company resources", "covers inventions conceived before employment", "no carve-out for personal time/personal projects", "moral rights waived without limit"]
+    },
+    {
+      "topic": "termination_grounds",
+      "typical": "Cause termination defined clearly (e.g., gross misconduct, repeated policy breach). Without-cause termination on notice or pay-in-lieu.",
+      "red_flags": ["employer sole judge of what constitutes cause", "no definition of cause", "cause termination with no appeal or cure period", "employee terminated for any business reason with no compensation"]
+    },
+    {
+      "topic": "probation_period",
+      "typical": "3–6 months with reduced notice (e.g., 1 week). Confirmation of passing probation should be explicit.",
+      "red_flags": ["probation period exceeds 12 months", "probation automatically extended indefinitely", "no confirmation mechanism", "reduced rights not restored after confirmation"]
+    },
+    {
+      "topic": "compensation_and_bonuses",
+      "typical": "Base salary stated clearly. Bonus criteria objective or at least described. Deductions itemised and legal.",
+      "red_flags": ["bonus entirely discretionary with no criteria", "salary can be reduced unilaterally", "unpaid overtime implied by 'as needed' language", "deductions not specified"]
+    },
+    {
+      "topic": "confidentiality",
+      "typical": "Covers confidential information actually shared in employment. Survives termination for a reasonable period (1–3 years).",
+      "red_flags": ["perpetual confidentiality with no time limit", "covers all information employee ever encounters", "no carve-out for information already in public domain"]
+    },
+    {
+      "topic": "dispute_resolution",
+      "typical": "Internal grievance process followed by mediation or employment tribunal. Employee can seek legal advice before agreeing to any settlement.",
+      "red_flags": ["binding arbitration only, no tribunal access", "employee must pay employer costs if they lose", "mandatory pre-dispute waiver of rights"]
+    }
+  ]
+}

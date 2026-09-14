@@ -1,0 +1,31 @@
+{
+  "_note": "STARTING POINT — curated by ClauseWise maintainers. Fallback reference for documents that do not match a specific type. Not legal advice; used only for severity comparison within the tool.",
+  "document_type": "other",
+  "typical_patterns": [
+    {
+      "topic": "obligations",
+      "typical": "Clear, specific, and mutual obligations. Each party knows exactly what they must do and by when.",
+      "red_flags": ["obligations entirely one-sided", "obligations vague or undefined", "obligations can be changed unilaterally by one party"]
+    },
+    {
+      "topic": "payment",
+      "typical": "Payment amounts, schedule, and method clearly stated. Late payment consequences disclosed.",
+      "red_flags": ["payment can be changed without consent", "undisclosed fees", "payment non-refundable under all circumstances"]
+    },
+    {
+      "topic": "termination",
+      "typical": "Either party may terminate on reasonable notice. Obligations at termination clearly stated.",
+      "red_flags": ["only one party may terminate", "termination penalty disproportionate", "no notice period required"]
+    },
+    {
+      "topic": "liability",
+      "typical": "Liability limited proportionately. Gross negligence and fraud not excluded.",
+      "red_flags": ["all liability disclaimed including gross negligence", "liability cap is zero", "indemnity clause extremely broad and one-sided"]
+    },
+    {
+      "topic": "dispute_resolution",
+      "typical": "Neutral forum, accessible to both parties. Both parties bear their own costs unless award made.",
+      "red_flags": ["mandatory arbitration only", "loser pays all costs regardless", "jurisdiction clause in a location inaccessible to one party"]
+    }
+  ]
+}

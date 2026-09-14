@@ -1,0 +1,41 @@
+{
+  "_note": "STARTING POINT — curated by ClauseWise maintainers. Review and extend before each release. Not legal advice; used only for severity comparison within the tool.",
+  "document_type": "terms_of_service",
+  "typical_patterns": [
+    {
+      "topic": "data_sharing_and_selling",
+      "typical": "Data shared only with service providers necessary for delivery of the service, not sold to third parties for advertising.",
+      "red_flags": ["user data sold to third parties", "data shared with unnamed affiliates", "consent obtained once and applied to future unrelated uses", "no opt-out for marketing"]
+    },
+    {
+      "topic": "arbitration_and_class_action_waiver",
+      "typical": "Users retain the right to go to small claims court. Class actions permitted or waiver is narrow and disclosed prominently.",
+      "red_flags": ["mandatory binding arbitration for all disputes", "class action waiver hidden in fine print", "arbitration costs borne by user", "user waives right to jury trial"]
+    },
+    {
+      "topic": "auto_renewal",
+      "typical": "Renewal disclosed clearly, reminder sent before charge, cancellation easy (as easy as sign-up).",
+      "red_flags": ["auto-renewal with no advance notice", "cancellation requires phone call or written letter only", "renewal at higher price with no notice", "no pro-rata refund on cancellation"]
+    },
+    {
+      "topic": "liability_limitation",
+      "typical": "Liability capped at amount paid in last 12 months. Platform not liable for indirect/consequential loss.",
+      "red_flags": ["all liability disclaimed including for gross negligence", "cap is zero or a nominal amount", "platform can change service without notice and bear no liability", "death and personal injury not excluded from disclaimer"]
+    },
+    {
+      "topic": "content_license",
+      "typical": "User grants platform a limited license to host and display user content. User retains ownership.",
+      "red_flags": ["perpetual, irrevocable, worldwide, royalty-free license to use content for any purpose", "platform can sub-license content", "platform owns derivative works", "no right to delete and revoke license"]
+    },
+    {
+      "topic": "unilateral_modification",
+      "typical": "Changes notified at least 30 days in advance. User can reject changes by cancelling the service.",
+      "red_flags": ["terms can change at any time without notice", "continued use after posting constitutes acceptance", "changes retroactively apply to prior use", "no right to object or cancel without penalty"]
+    },
+    {
+      "topic": "account_termination",
+      "typical": "Platform may suspend for breach of ToS. User notified with opportunity to appeal. Data exportable before deletion.",
+      "red_flags": ["platform may terminate for any reason without notice", "no appeal process", "user data deleted immediately with no export window", "no pro-rata refund on termination"]
+    }
+  ]
+}

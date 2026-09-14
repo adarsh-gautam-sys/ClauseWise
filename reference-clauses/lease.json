@@ -1,0 +1,46 @@
+{
+  "_note": "STARTING POINT — curated by ClauseWise maintainers. Review and extend before each release. Not legal advice; used only for severity comparison within the tool.",
+  "document_type": "lease",
+  "typical_patterns": [
+    {
+      "topic": "security_deposit",
+      "typical": "1–2 months' rent, returned within 14–30 days of move-out minus documented deductions.",
+      "red_flags": ["deposit exceeds 2 months", "no stated return timeline", "landlord sole judge of deductions", "non-refundable deposit language"]
+    },
+    {
+      "topic": "notice_period_to_vacate",
+      "typical": "30 days written notice by either party (60 days in many jurisdictions for month-to-month).",
+      "red_flags": ["notice period exceeds 90 days for tenant", "landlord requires shorter notice than tenant", "no written notice requirement"]
+    },
+    {
+      "topic": "rent_escalation",
+      "typical": "Annual increase capped at CPI or a fixed percentage (e.g., 5%). Many jurisdictions cap increases by law.",
+      "red_flags": ["landlord may increase rent at any time", "no cap stated", "increase more than 10% annually", "increase with fewer than 30 days notice"]
+    },
+    {
+      "topic": "maintenance_and_repairs",
+      "typical": "Landlord responsible for structural, plumbing, electrical, heating. Tenant responsible for minor cosmetic repairs and normal wear.",
+      "red_flags": ["tenant liable for all repairs regardless of cause", "tenant must maintain appliances at own cost", "no timeline given for landlord response to repairs"]
+    },
+    {
+      "topic": "early_termination",
+      "typical": "Penalty of 1–2 months' rent or forfeiture of deposit if tenant breaks lease early. Landlord duty to mitigate by re-letting.",
+      "red_flags": ["tenant liable for all rent through end of term regardless of re-letting", "no landlord duty to mitigate", "penalty exceeds 3 months' rent"]
+    },
+    {
+      "topic": "entry_by_landlord",
+      "typical": "24–48 hours' written notice required except in emergencies.",
+      "red_flags": ["landlord may enter at any time without notice", "notice shorter than 24 hours", "no emergency exception defined"]
+    },
+    {
+      "topic": "subletting",
+      "typical": "Permitted with landlord consent not to be unreasonably withheld.",
+      "red_flags": ["subletting absolutely prohibited", "no consent process defined", "tenant remains liable even after approved sublet without clear terms"]
+    },
+    {
+      "topic": "dispute_resolution",
+      "typical": "Local landlord-tenant tribunal or small claims court. Both parties bear own costs unless award is made.",
+      "red_flags": ["mandatory binding arbitration waiving court rights", "tenant pays landlord legal fees regardless of outcome", "jurisdiction clause in a distant location"]
+    }
+  ]
+}

@@ -81,9 +81,49 @@ function normaliseGeminiError(err: unknown): AppError {
   return new AppError(502, "AI service returned an unexpected error. Please try again.");
 }
 
+// ── Schema sanitisation ────────────────────────────────────────────────────────
+
+/**
+ * Gemini's responseSchema accepts a subset of JSON Schema (OpenAPI 3.0-ish).
+ * Keywords like minLength, maxLength, minItems, maxItems, $schema, and
+ * additionalProperties cause INVALID_ARGUMENT (400) errors.
+ *
+ * This function strips those unsupported keywords recursively so the
+ * Zod-generated schema can be passed to Gemini safely.
+ * We still validate the ACTUAL response with Zod (which keeps all constraints),
+ * so removing them from the prompt-time schema does not weaken validation.
+ */
+function sanitizeForGemini(schema: unknown): unknown {
+  if (schema === null || typeof schema !== "object") return schema;
+  if (Array.isArray(schema)) return schema.map(sanitizeForGemini);
+
+  const STRIP_KEYS = new Set([
+    "$schema",
+    "minLength",
+    "maxLength",
+    "minItems",
+    "maxItems",
+    "additionalProperties",
+    "minimum",
+    "maximum",
+    "exclusiveMinimum",
+    "exclusiveMaximum",
+  ]);
+
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(schema as Record<string, unknown>)) {
+    if (STRIP_KEYS.has(k)) continue;
+    result[k] = sanitizeForGemini(v);
+  }
+  return result;
+}
+
 export async function generateStructured(prompt: string, schema: z.ZodType): Promise<string> {
   // Zod v4 ships toJSONSchema() natively — no external package required.
-  const jsonSchema = z.toJSONSchema(schema);
+  const rawJsonSchema = z.toJSONSchema(schema);
+
+  // Sanitise: strip keywords unsupported by Gemini's responseSchema (OpenAPI 3.0 subset).
+  const jsonSchema = sanitizeForGemini(rawJsonSchema);
 
   try {
     const response = await genai.models.generateContent({

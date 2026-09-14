@@ -1,0 +1,41 @@
+{
+  "_note": "STARTING POINT — curated by ClauseWise maintainers. Review and extend before each release. Not legal advice; used only for severity comparison within the tool.",
+  "document_type": "nda",
+  "typical_patterns": [
+    {
+      "topic": "definition_of_confidential_information",
+      "typical": "Clearly defined category of information (e.g., marked 'Confidential', or specific types listed). Oral disclosures confirmed in writing within 30 days.",
+      "red_flags": ["all information exchanged between parties is confidential regardless of marking", "no definition provided", "includes publicly available information", "receiving party must prove information was public even if obviously so"]
+    },
+    {
+      "topic": "duration_of_confidentiality",
+      "typical": "2–5 years from disclosure for commercial NDAs. Perpetual only for trade secrets.",
+      "red_flags": ["perpetual obligation on all information regardless of type", "duration extends indefinitely unless disclosing party releases", "no expiry for general business information not qualifying as trade secrets"]
+    },
+    {
+      "topic": "standard_carve_outs",
+      "typical": "Excludes: (1) information already public, (2) info already known by receiving party, (3) info received from a third party lawfully, (4) independently developed without reference to confidential info.",
+      "red_flags": ["no carve-outs at all", "receiving party bears burden of proof for all carve-outs with onerous requirements", "carve-outs require prior written consent of disclosing party"]
+    },
+    {
+      "topic": "permitted_disclosures",
+      "typical": "Disclosure to employees/advisors on need-to-know basis, bound by equivalent confidentiality. Disclosure required by law allowed with notice to disclosing party where legally possible.",
+      "red_flags": ["no provision for legal compulsion to disclose", "disclosure to any third party prohibited regardless of court order", "receiving party must indemnify for any compelled disclosure"]
+    },
+    {
+      "topic": "remedies_and_penalties",
+      "typical": "Injunctive relief and actual damages available. Parties acknowledge breach causes irreparable harm (boilerplate, standard). No punitive multipliers.",
+      "red_flags": ["fixed penalty per breach regardless of actual harm", "liquidated damages clause with a very high amount", "receiving party responsible for all breaches by its employees regardless of fault or instruction"]
+    },
+    {
+      "topic": "scope_of_use",
+      "typical": "Confidential information used only for the stated purpose (e.g., evaluating a partnership, conducting due diligence).",
+      "red_flags": ["no stated purpose; information may be used for any purpose by receiving party", "permitted use expands without notice", "receiving party can use information to compete"]
+    },
+    {
+      "topic": "return_and_destruction",
+      "typical": "On request or termination, receiving party returns or certifiably destroys confidential materials. Backup copies excluded from instant deletion with reasonable retention cap.",
+      "red_flags": ["no return/destruction obligation", "receiving party may retain copies indefinitely", "destruction at disclosing party's expense"]
+    }
+  ]
+}
