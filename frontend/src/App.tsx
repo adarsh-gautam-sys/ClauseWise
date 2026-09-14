@@ -1,81 +1,66 @@
 /**
- * App — root routing shell.
+ * App — root component.
  *
- * For now: upload screen only. A documentId in state transitions to the
- * results screen (Part 10). The AppShell wraps every view.
+ * Holds global state: persona, active tab, upload result.
+ * Renders AppShell which provides header (with PersonaSelect) and Tabs.
+ *
+ * Understand tab: UploadScreen → UploadSuccess after successful upload.
+ * Compare and Q&A tabs: PlaceholderScreen (wired in future parts).
  */
 
 import { useState } from "react";
-import { AppShell } from "./components/AppShell";
-import { UploadScreen, type UploadResult } from "./components/UploadScreen";
-import type { Persona } from "./components/PersonaSelector";
-
-interface AnalysisState {
-  result: UploadResult;
-  persona: Persona;
-}
+import { AppShell, type AppTab } from "@/components/AppShell";
+import { UploadScreen, type UploadResult } from "@/components/UploadScreen";
+import { UploadSuccess } from "@/components/UploadSuccess";
+import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import type { Persona } from "@/components/PersonaSelect";
 
 function App() {
-  const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
+  const [persona, setPersona]     = useState<Persona | "">("");
+  const [activeTab, setActiveTab] = useState<AppTab>("understand");
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
 
-  const handleUploadSuccess = (result: UploadResult, persona: Persona) => {
-    setAnalysis({ result, persona });
+  const handleUploadSuccess = (result: UploadResult) => {
+    setUploadResult(result);
+  };
+
+  const handleReset = () => {
+    setUploadResult(null);
   };
 
   return (
-    <AppShell>
-      {analysis === null ? (
-        <UploadScreen onSuccess={handleUploadSuccess} />
-      ) : (
-        /* Results screen — to be built in Part 10 */
-        <div className="flex flex-col items-center gap-4 py-12 text-center">
-          <div
-            className="rounded-2xl border p-8"
-            style={{
-              background: "var(--surface)",
-              borderColor: "var(--border)",
-              maxWidth: "36rem",
-              width: "100%",
-            }}
-          >
-            <p className="text-sm font-medium" style={{ color: "var(--muted-foreground)" }}>
-              Document uploaded
-            </p>
-            <p
-              className="mt-2 text-2xl font-semibold tracking-tight"
-              style={{ color: "var(--foreground)" }}
-            >
-              {analysis.result.documentId.slice(0, 8)}…
-            </p>
-            <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
-              {analysis.result.chunkCount} chunks · {analysis.persona} persona
-            </p>
-            <p
-              className="mt-4 rounded-lg border px-4 py-3 text-left text-xs leading-relaxed"
-              style={{
-                borderColor: "var(--border)",
-                color: "var(--muted-foreground)",
-                background: "var(--muted)",
-              }}
-            >
-              <strong style={{ color: "var(--foreground)" }}>Preview: </strong>
-              {analysis.result.preview}
-            </p>
-            <button
-              type="button"
-              onClick={() => setAnalysis(null)}
-              className="mt-6 text-sm underline"
-              style={{ color: "var(--primary)" }}
-            >
-              Upload another document
-            </button>
-          </div>
-          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-            Results screen coming in Part 10
-          </p>
-        </div>
-      )}
-    </AppShell>
+    <AppShell
+      persona={persona}
+      onPersonaChange={setPersona}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      understandContent={
+        uploadResult === null ? (
+          <UploadScreen
+            persona={persona}
+            onSuccess={handleUploadSuccess}
+          />
+        ) : (
+          <UploadSuccess
+            result={uploadResult}
+            persona={persona as Persona}
+            onReset={handleReset}
+          />
+        )
+      }
+      compareContent={
+        <PlaceholderScreen
+          title="Compare Documents"
+          description="Upload two documents to get a side-by-side clause comparison. Available after uploading and analyzing your first document."
+        />
+      }
+      askContent={
+        <PlaceholderScreen
+          title="Ask a Question"
+          description="Ask anything about your document and get a grounded answer with clause citations. Available after analysis is complete."
+        />
+      }
+    />
   );
 }
 

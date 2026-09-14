@@ -1,19 +1,15 @@
 /*
  * ClauseWise — Global Design System
  * ─────────────────────────────────────────────────────────────────────────────
- * Direction contract (see shape brief):
+ * Direction contract:
  * THESIS: Calm institutional authority; the interface recedes so the document
  *   leads. Refuses the lit-up AI-chat template and the cream-serif legal cliché.
- * OWN-WORLD: Cool deep-slate ground, single blue accent, Figtree humanist sans.
- *   Restrained palette — neutral dominant, accent for actions and severity-high only.
- * STORY: User selects who they are, drops their document, and trusts the tool
- *   to protect them. Clarity before features.
+ * OWN-WORLD: Cool deep-slate ground, single blue accent (primary only), Figtree
+ *   humanist sans-serif. Restrained palette — neutral dominant, accent for
+ *   actions only. Severity tokens always carry a text label (WCAG + AGENTS.md).
+ * STORY: Select who you are → drop your document → trust the tool.
  * FIRST VIEWPORT: Centered card on dark ground, persona chips above the
  *   dropzone, primary CTA full-width below.
- * FORM: Single-column focused form. Persona → Upload → Analyze.
- * FINISH: unreviewed and undocumented is unfinished; this build ends with the
- *   finish review, the verdict, DESIGN.md, and every shipping raster carrying
- *   its provenance.
  */
 
 /* ── Font ──────────────────────────────────────────────────────────────────── */
@@ -23,93 +19,113 @@
 @import "@fontsource/figtree/700.css";
 @import "tailwindcss";
 
-/* ── Dark-mode variant ────────────────────────────────────────────────────── */
+/* ── Dark-mode class variant (applied on <html>) ─────────────────────────── */
 @custom-variant dark (&:is(.dark *));
 
-/* ── Design tokens ────────────────────────────────────────────────────────── */
+/* ── Tailwind → CSS custom-property bridge ───────────────────────────────── */
 /*
- * Palette strategy: Restrained.
- * Ground: deep cool slate, not pure black — has blue undertone (hue 222°).
- * Surface: slightly lighter slate for cards and inputs.
- * Accent: calm WCAG-AA blue used only for primary actions and high-severity.
- * Severity tokens always accompany a text label — never color alone.
+ * shadcn/ui new-york components use Tailwind utility classes like bg-background,
+ * text-foreground, bg-primary, etc. This @theme block maps those utilities to
+ * our CSS custom properties so the design system controls the values.
  */
 @theme inline {
   /* Typography */
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
 
-  /* Colour roles mapped through CSS custom properties */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-foreground: var(--surface-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-
-  /* Semantic roles */
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary-hover: var(--primary-hover);
-  --color-destructive: var(--destructive);
+  /* Core semantic tokens */
+  --color-background:           var(--background);
+  --color-foreground:           var(--foreground);
+  --color-card:                 var(--card);
+  --color-card-foreground:      var(--card-foreground);
+  --color-popover:              var(--popover);
+  --color-popover-foreground:   var(--popover-foreground);
+  --color-primary:              var(--primary);
+  --color-primary-foreground:   var(--primary-foreground);
+  --color-secondary:            var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:                var(--muted);
+  --color-muted-foreground:     var(--muted-foreground);
+  --color-accent:               var(--accent);
+  --color-accent-foreground:    var(--accent-foreground);
+  --color-destructive:          var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-border:               var(--border);
+  --color-input:                var(--input);
+  --color-ring:                 var(--ring);
 
-  /* Severity — always paired with a text label */
-  --color-severity-high: var(--severity-high);
-  --color-severity-high-bg: var(--severity-high-bg);
-  --color-severity-medium: var(--severity-medium);
-  --color-severity-medium-bg: var(--severity-medium-bg);
-  --color-severity-low: var(--severity-low);
-  --color-severity-low-bg: var(--severity-low-bg);
+  /* Severity — always paired with a text label, never color alone */
+  --color-severity-high:        var(--severity-high);
+  --color-severity-high-bg:     var(--severity-high-bg);
+  --color-severity-medium:      var(--severity-medium);
+  --color-severity-medium-bg:   var(--severity-medium-bg);
+  --color-severity-low:         var(--severity-low);
+  --color-severity-low-bg:      var(--severity-low-bg);
 
-  /* Radii */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-full: 9999px;
+  /* Radii (used by shadcn) */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ── Dark theme (default — documents read at night, under variable lighting) */
+/* ── Dark theme tokens (default — dark mode always on for this app) ────────
+ *
+ * Dark is the default because legal documents are often reviewed late at
+ * night, in low or variable ambient light. The palette is a cool near-black
+ * with a blue undertone — deep slate, not pure black, gives the UI depth
+ * without a harsh edge.
+ *
+ * Color strategy: Restrained.
+ * Ground: near-black cool slate (hue 222, low chroma).
+ * Card: slightly lighter surface on the same hue family.
+ * Accent: a single calm blue, WCAG AA on dark surfaces.
+ * Severity: blue (high), amber (medium), green (low) — always with text label.
+ */
 :root,
 .dark {
-  /* Ground — deep cool slate, near-neutral with just enough blue undertone */
-  --background: oklch(0.145 0.008 222); /* near-black, subtle cool cast */
-  --foreground: oklch(0.93 0.006 222); /* warm white, not pure */
+  /* ── Ground & text ─────────────────────────────────────────────────────── */
+  --background:    oklch(0.145 0.008 222);   /* near-black cool slate */
+  --foreground:    oklch(0.93  0.006 222);   /* warm white */
 
-  /* Card / surface — distinguishable from ground without glowing */
-  --surface: oklch(0.19 0.01 222); /* slightly lifted from ground */
-  --surface-foreground: oklch(0.93 0.006 222);
+  /* ── Card / popover surfaces ───────────────────────────────────────────── */
+  --card:           oklch(0.19  0.010 222);   /* lifted from ground */
+  --card-foreground: oklch(0.93 0.006 222);
+  --popover:        oklch(0.19  0.010 222);
+  --popover-foreground: oklch(0.93 0.006 222);
 
-  /* Muted */
-  --muted: oklch(0.24 0.008 222);
-  --muted-foreground: oklch(0.58 0.01 222);
+  /* ── Secondary / muted surfaces ────────────────────────────────────────── */
+  --secondary:           oklch(0.24 0.008 222);
+  --secondary-foreground: oklch(0.93 0.006 222);
+  --muted:               oklch(0.22 0.008 222);
+  --muted-foreground:    oklch(0.58 0.010 222);
 
-  /* Borders */
-  --border: oklch(0.28 0.01 222);
-  --input: oklch(0.21 0.01 222);
+  /* ── Accent (hover tint for interactive elements, NOT severity) ─────────── */
+  --accent:           oklch(0.60 0.18 240 / 0.12);   /* translucent primary */
+  --accent-foreground: oklch(0.93 0.006 222);
 
-  /* Focus ring */
-  --ring: oklch(0.6 0.18 240);
-
-  /* Primary action — calm WCAG-AA blue */
-  --primary: oklch(0.6 0.18 240); /* clear, accessible blue */
+  /* ── Primary action — calm WCAG-AA blue ─────────────────────────────────── */
+  --primary:           oklch(0.60 0.18 240);
   --primary-foreground: oklch(0.98 0.004 222);
-  --primary-hover: oklch(0.65 0.18 240);
 
-  /* Destructive */
-  --destructive: oklch(0.55 0.2 22);
+  /* ── Destructive ──────────────────────────────────────────────────────── */
+  --destructive:           oklch(0.55 0.20 22);
   --destructive-foreground: oklch(0.98 0.004 222);
 
-  /* Severity tokens — always paired with text label (AGENTS.md) */
-  --severity-high: oklch(0.6 0.18 240); /* blue = high, accent-controlled */
-  --severity-high-bg: oklch(0.6 0.18 240 / 0.15);
-  --severity-medium: oklch(0.78 0.16 65); /* amber */
-  --severity-medium-bg: oklch(0.78 0.16 65 / 0.15);
-  --severity-low: oklch(0.64 0.14 160); /* muted green */
-  --severity-low-bg: oklch(0.64 0.14 160 / 0.15);
+  /* ── Borders, inputs, focus ring ────────────────────────────────────────── */
+  --border: oklch(0.28 0.010 222);
+  --input:  oklch(0.22 0.010 222);
+  --ring:   oklch(0.60 0.18 240);        /* focus ring = primary */
+
+  /* ── Border radius ──────────────────────────────────────────────────────── */
+  --radius: 0.5rem;                       /* base radius for shadcn components */
+
+  /* ── Severity tokens (color + MUST be paired with text label in markup) ─── */
+  --severity-high:    oklch(0.60 0.18 240);            /* blue  */
+  --severity-high-bg: oklch(0.60 0.18 240 / 0.15);
+  --severity-medium:    oklch(0.78 0.16 65);           /* amber */
+  --severity-medium-bg: oklch(0.78 0.16 65  / 0.15);
+  --severity-low:    oklch(0.64 0.14 160);             /* green */
+  --severity-low-bg: oklch(0.64 0.14 160  / 0.15);
 }
 
 /* ── Global base ─────────────────────────────────────────────────────────── */
@@ -124,17 +140,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Smooth scrolling, but respect user preference */
-    scroll-behavior: smooth;
   }
 
+  /* Respect reduced-motion preference — craft floor requirement */
   @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
-    *,
-    *::before,
-    *::after {
+    *, *::before, *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -149,52 +159,40 @@
     min-height: 100dvh;
   }
 
-  /* ── Browser surfaces — themed to match design ─────────────────────────── */
+  h1, h2, h3, h4 {
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+
+  /* ── Browser surfaces — themed to match design (craft floor) ─────────── */
+
   /* Text selection */
   ::selection {
-    background-color: oklch(0.6 0.18 240 / 0.35);
+    background-color: oklch(0.60 0.18 240 / 0.35);
     color: var(--foreground);
   }
 
   /* Caret */
-  input,
-  textarea {
+  input, textarea {
     caret-color: var(--primary);
   }
 
-  /* Scrollbar — minimal, theme-matched */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--background);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--muted-foreground);
-  }
+  /* Custom scrollbar */
+  ::-webkit-scrollbar          { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track    { background: var(--background); }
+  ::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
-  /* Focus ring — visible, consistent */
+  /* Focus ring (shadcn uses ring utilities; base anchor kept for non-shadcn) */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
-  /* Underline offset */
-  a {
-    text-underline-offset: 3px;
-  }
+  /* Link underline offset */
+  a { text-underline-offset: 3px; }
 
-  h1,
-  h2,
-  h3,
-  h4 {
-    line-height: 1.25;
-    letter-spacing: -0.025em;
-    font-weight: 600;
-  }
+  /* Ensure border utility applies border-color: var(--border) by default */
+  * { @apply border-border; }
 }

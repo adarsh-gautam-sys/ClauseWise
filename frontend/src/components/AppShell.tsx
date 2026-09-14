@@ -1,25 +1,54 @@
 /**
- * AppShell — fixed header, scrollable main, sticky footer.
+ * AppShell
  *
- * The header is always 56px tall. Main carries enough padding to never
- * be obscured. Footer is one line of disclaimer text.
+ * Persistent layout: fixed header, tabbed main content, sticky footer.
+ *
+ * Header contains:
+ * - ClauseWise logo + wordmark (left)
+ * - PersonaSelect dropdown (centre-right)
+ * - "Not legal advice" badge (right, hidden on smallest screens)
+ *
+ * Main contains:
+ * - Tabs: Understand | Compare | Q&A (shadcn Tabs)
+ * - Active tab content rendered by App.tsx
+ *
+ * Footer: one-line permanent legal disclaimer (AGENTS.md requirement).
  *
  * Accessibility:
- * - <header> / <main> / <footer> landmarks
- * - Skip-to-main link for keyboard users
- * - WCAG 2.1 AA: 4.5:1 minimum contrast on all text
+ * - Skip-to-main link (visible on focus, for keyboard users)
+ * - <header>, <main>, <footer> landmarks
+ * - Tabs use Radix UI — full keyboard navigation and ARIA roles built in
+ * - Tab panels have id/aria-labelledby via shadcn
  */
 
 import { Scale } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PersonaSelect, type Persona } from "@/components/PersonaSelect";
+
+export type AppTab = "understand" | "compare" | "ask";
 
 interface AppShellProps {
-  children: React.ReactNode;
+  persona: Persona | "";
+  onPersonaChange: (p: Persona) => void;
+  activeTab: AppTab;
+  onTabChange: (t: AppTab) => void;
+  understandContent: React.ReactNode;
+  compareContent: React.ReactNode;
+  askContent: React.ReactNode;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({
+  persona,
+  onPersonaChange,
+  activeTab,
+  onTabChange,
+  understandContent,
+  compareContent,
+  askContent,
+}: AppShellProps) {
   return (
     <div className="flex min-h-dvh flex-col" style={{ background: "var(--background)" }}>
-      {/* Skip link — keyboard-only visible */}
+      {/* ── Skip link ─────────────────────────────────────────────────────── */}
       <a
         href="#main-content"
         className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-50 focus-visible:rounded-md focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-semibold"
@@ -33,18 +62,21 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-30 flex h-14 items-center border-b px-6"
+        className="sticky top-0 z-30 border-b"
         style={{
-          background: "var(--surface)",
+          background: "var(--card)",
           borderColor: "var(--border)",
         }}
       >
-        <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
           {/* Wordmark */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-shrink-0 items-center gap-2.5">
             <div
               className="flex h-8 w-8 items-center justify-center rounded-md"
-              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+              style={{
+                background: "var(--primary)",
+                color: "var(--primary-foreground)",
+              }}
               aria-hidden="true"
             >
               <Scale size={16} strokeWidth={2.5} />
@@ -57,27 +89,102 @@ export function AppShell({ children }: AppShellProps) {
             </span>
           </div>
 
-          {/* Not legal advice badge */}
-          <span
-            className="hidden rounded-full border px-3 py-1 text-xs font-medium sm:inline-flex"
-            style={{
-              borderColor: "var(--border)",
-              color: "var(--muted-foreground)",
-            }}
-            aria-label="Disclaimer: not legal advice"
-          >
-            Not legal advice
-          </span>
+          {/* Persona selector + badge */}
+          <div className="flex items-center gap-3">
+            <PersonaSelect value={persona} onChange={onPersonaChange} />
+            <span
+              className="hidden rounded-full border px-2.5 py-1 text-xs font-medium lg:inline-flex"
+              style={{
+                borderColor: "var(--border)",
+                color: "var(--muted-foreground)",
+              }}
+              aria-label="Disclaimer: not legal advice"
+            >
+              Not legal advice
+            </span>
+          </div>
         </div>
       </header>
 
-      {/* ── Main ─────────────────────────────────────────────────────────── */}
+      {/* ── Main with Tabs ───────────────────────────────────────────────── */}
       <main
         id="main-content"
         tabIndex={-1}
-        className="flex flex-1 flex-col items-center px-4 py-12 outline-none"
+        className="flex flex-1 flex-col outline-none"
       >
-        {children}
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => onTabChange(v as AppTab)}
+          className="flex flex-1 flex-col"
+        >
+          {/* Tab strip */}
+          <div
+            className="border-b"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <div className="mx-auto max-w-5xl px-4 sm:px-6">
+              <TabsList
+                className="h-auto rounded-none border-0 bg-transparent p-0"
+                aria-label="Main navigation"
+              >
+                {(
+                  [
+                    { value: "understand", label: "Understand" },
+                    { value: "compare",    label: "Compare" },
+                    { value: "ask",        label: "Q&A" },
+                  ] as const
+                ).map(({ value, label }) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="relative rounded-none border-0 bg-transparent px-4 py-3 text-sm font-medium shadow-none transition-colors data-[state=active]:shadow-none"
+                    style={{
+                      color:
+                        activeTab === value
+                          ? "var(--foreground)"
+                          : "var(--muted-foreground)",
+                      // Active indicator via border-bottom trick
+                      borderBottom:
+                        activeTab === value
+                          ? "2px solid var(--primary)"
+                          : "2px solid transparent",
+                    }}
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+          </div>
+
+          {/* Tab panels */}
+          <TabsContent
+            value="understand"
+            className="mt-0 flex flex-1 flex-col outline-none"
+          >
+            <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
+              {understandContent}
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="compare"
+            className="mt-0 flex flex-1 flex-col outline-none"
+          >
+            <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
+              {compareContent}
+            </div>
+          </TabsContent>
+
+          <TabsContent
+            value="ask"
+            className="mt-0 flex flex-1 flex-col outline-none"
+          >
+            <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
+              {askContent}
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
