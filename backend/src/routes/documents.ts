@@ -37,6 +37,7 @@ import {
   type AnalysisResponse,
 } from "../prompts/analyze.js";
 import type { DocumentType } from "../prompts/classify.js";
+import { prioritizeClauses, parsePersona } from "../services/decisionEngine.js";
 
 // ── Resolve path to reference-clauses/ ───────────────────────────────────────
 // reference-clauses/ lives at the repo root (two levels above src/routes/).
@@ -445,6 +446,13 @@ documentsRouter.post(
 
       const { document_type } = doc.classification;
 
+      // ── Parse persona (PRD §7 decision engine) ───────────────────────────────
+      // Accept an optional `persona` field in the request body.
+      // parsePersona is safe to call on untrusted input — returns "unknown" for
+      // anything not in the allowed set, which degrades to severity order.
+
+      const persona = parsePersona((req.body as Record<string, unknown> | undefined)?.["persona"]);
+
       // ── Load reference clauses (severity calibration) ────────────────────────
 
       const referenceClauses = await loadReferenceClauses(document_type);
@@ -457,17 +465,27 @@ documentsRouter.post(
 
       const analysis = await generateAndValidateAnalysis(prompt);
 
-      // ── Persist on the document record ───────────────────────────────────────
+      // ── Apply persona-aware priority ordering (PRD §7) ───────────────────────
+      // Pure, deterministic reordering — no further LLM calls.
+      // Priority clauses for the (documentType, persona) pair surface first;
+      // remaining clauses fall back to severity order (high → medium → low).
 
-      setAnalysis(id, analysis);
+      const prioritisedClauses = prioritizeClauses(analysis.clauses, document_type, persona);
+
+      // ── Persist on the document record ───────────────────────────────────────
+      // Store the reordered analysis so downstream routes (Q&A, checklist) see
+      // the same clause ordering.
+
+      setAnalysis(id, { ...analysis, clauses: prioritisedClauses });
 
       // ── Respond ──────────────────────────────────────────────────────────────
 
       res.status(200).json({
         documentId: id,
         document_type,
+        persona,
         summary: analysis.summary,
-        clauses: analysis.clauses,
+        clauses: prioritisedClauses,
       });
     } catch (err) {
       next(err);
