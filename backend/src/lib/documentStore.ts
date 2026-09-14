@@ -34,11 +34,19 @@ export interface StoredDocument {
   /** Clause analysis result — populated by POST /:id/analyze. */
   analysis?: AnalysisResponse;
   /**
-   * Dense embedding vectors for each chunk — populated lazily on the first
-   * POST /:id/ask call and reused for every subsequent question on this
-   * document.  Parallel array: chunkEmbeddings[i] is the embedding for chunks[i].
+   * Dense embedding vectors for each text chunk — populated lazily on the
+   * first POST /:id/ask call.  Parallel array: chunkEmbeddings[i] is the
+   * embedding for chunks[i].  Used for Q&A retrieval.
    */
   chunkEmbeddings?: number[][];
+
+  /**
+   * Dense embedding vectors for each analysed clause's plain_language_summary
+   * — populated lazily on the first POST /compare call that references this
+   * document.  Parallel array: clauseEmbeddings[i] is the embedding for
+   * analysis.clauses[i].  Used for cross-document clause alignment.
+   */
+  clauseEmbeddings?: number[][];
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -131,6 +139,19 @@ export function setChunkEmbeddings(documentId: string, embeddings: number[][]): 
   const doc = store.get(documentId);
   if (doc) {
     doc.chunkEmbeddings = embeddings;
+  }
+}
+
+/**
+ * Cache pre-computed clause-summary embeddings for cross-document comparison.
+ * Called once per document on the first /compare call that references it;
+ * subsequent comparisons reuse the cached vectors.
+ * No-op if the document has already expired or was never stored.
+ */
+export function setClauseEmbeddings(documentId: string, embeddings: number[][]): void {
+  const doc = store.get(documentId);
+  if (doc) {
+    doc.clauseEmbeddings = embeddings;
   }
 }
 

@@ -29,6 +29,7 @@ import {
   setClassification,
   setAnalysis,
   setChunkEmbeddings,
+  setClauseEmbeddings,
 } from "../lib/documentStore.js";
 import { generateStructured, embedText } from "../services/geminiClient.js";
 import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
@@ -38,9 +39,10 @@ import {
   type AnalysisResponse,
 } from "../prompts/analyze.js";
 import { buildAskPrompt, askResponseSchema } from "../prompts/ask.js";
+import { buildComparePrompt, compareResponseSchema, type AlignedPair } from "../prompts/compare.js";
 import type { DocumentType } from "../prompts/classify.js";
 import { prioritizeClauses, parsePersona } from "../services/decisionEngine.js";
-import { topKChunks } from "../lib/similarity.js";
+import { topKChunks, cosineSimilarity } from "../lib/similarity.js";
 
 // ── Resolve path to reference-clauses/ ───────────────────────────────────────
 // reference-clauses/ lives at the repo root (two levels above src/routes/).
@@ -643,6 +645,299 @@ documentsRouter.post(
         answer: result.data.answer,
         cited_sections: result.data.cited_sections,
         in_scope: result.data.in_scope,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Compare route ─────────────────────────────────────────────────────────────
+
+/**
+ * Cosine similarity threshold for clause alignment.
+ * Pairs scoring below this are considered unrelated and appear as
+ * "only in doc A/B" entries without a forced match.
+ *
+ * 0.72 was chosen empirically:
+ *   - High enough to avoid aligning superficially similar but topically
+ *     different clauses (e.g. "payment terms" vs. "notice period").
+ *   - Low enough to catch the same clause paraphrased across two documents.
+ */
+const ALIGN_THRESHOLD = 0.72;
+
+/**
+ * 2 compare calls per IP per minute.
+ * Each call may embed O(n+m) clause summaries on first use, plus one
+ * batched generation call — the most expensive operation in the API.
+ */
+const compareRateLimit = rateLimit({
+  windowMs: 60 * 1_000,
+  max: 2,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many comparison requests. Please wait before trying again." },
+});
+
+/**
+ * POST /api/documents/compare
+ *
+ * Compares two analysed documents clause-by-clause using semantic embedding
+ * alignment.  Both documents must already have been classified and analysed.
+ *
+ * Body: { "doc_a_id": string, "doc_b_id": string }
+ *
+ * Success response (200):
+ *   {
+ *     "doc_a_id": "...", "doc_b_id": "...",
+ *     "doc_a_type": "lease", "doc_b_type": "lease",
+ *     "comparisons": [
+ *       {
+ *         "match_type": "aligned",
+ *         "topic": "Notice Period",
+ *         "doc_a_summary": "...", "doc_b_summary": "...",
+ *         "change_description": "...",
+ *         "favors": "doc_b"
+ *       },
+ *       {
+ *         "match_type": "only_in_a",
+ *         "topic": "Pet Policy",
+ *         "summary": "..."
+ *       }
+ *     ]
+ *   }
+ */
+documentsRouter.post(
+  "/compare",
+  compareRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // ── Validate body ────────────────────────────────────────────────────────
+
+      const body = req.body as Record<string, unknown> | undefined;
+      const docAId = body?.["doc_a_id"];
+      const docBId = body?.["doc_b_id"];
+
+      if (typeof docAId !== "string" || docAId.trim().length === 0) {
+        throw new AppError(400, '"doc_a_id" must be a non-empty string.');
+      }
+      if (typeof docBId !== "string" || docBId.trim().length === 0) {
+        throw new AppError(400, '"doc_b_id" must be a non-empty string.');
+      }
+      if (docAId === docBId) {
+        throw new AppError(400, "doc_a_id and doc_b_id must refer to different documents.");
+      }
+
+      // ── Retrieve both documents ──────────────────────────────────────────────
+
+      const docA = getDocument(docAId);
+      if (!docA) {
+        throw new AppError(404, `Document A (${docAId}) not found or has expired.`);
+      }
+      const docB = getDocument(docBId);
+      if (!docB) {
+        throw new AppError(404, `Document B (${docBId}) not found or has expired.`);
+      }
+
+      // ── Require prior analysis on both documents ─────────────────────────────
+
+      if (!docA.analysis) {
+        throw new AppError(
+          400,
+          "Document A has not been analysed yet. Call POST /:id/analyze first.",
+        );
+      }
+      if (!docB.analysis) {
+        throw new AppError(
+          400,
+          "Document B has not been analysed yet. Call POST /:id/analyze first.",
+        );
+      }
+
+      const clausesA = docA.analysis.clauses;
+      const clausesB = docB.analysis.clauses;
+
+      // ── Lazy clause embedding (cache per document) ───────────────────────────
+      // Embed each clause's plain_language_summary once, then reuse.
+      // Sequential embedding respects the free-tier rate limit (15 req/min).
+
+      async function ensureClauseEmbeddings(
+        docId: string,
+        clauses: typeof clausesA,
+        cached: number[][] | undefined,
+      ): Promise<number[][]> {
+        if (cached) return cached;
+        const embeddings: number[][] = [];
+        for (const clause of clauses) {
+          const emb = await embedText(clause.plain_language_summary);
+          embeddings.push(emb);
+        }
+        setClauseEmbeddings(docId, embeddings);
+        return embeddings;
+      }
+
+      const [embsA, embsB] = await Promise.all([
+        ensureClauseEmbeddings(docAId, clausesA, docA.clauseEmbeddings),
+        ensureClauseEmbeddings(docBId, clausesB, docB.clauseEmbeddings),
+      ]);
+
+      // ── Greedy bipartite alignment ───────────────────────────────────────────
+      // Score all (i, j) pairs. Greedily assign the highest-scoring pairs
+      // above ALIGN_THRESHOLD, each clause used at most once per side.
+      // Reuses cosineSimilarity from similarity.ts (imported at module top).
+
+      // Build scored pairs.
+      type ScoredPair = { i: number; j: number; score: number };
+      const scoredPairs: ScoredPair[] = [];
+
+      for (let i = 0; i < clausesA.length; i++) {
+        for (let j = 0; j < clausesB.length; j++) {
+          const score = cosineSimilarity(embsA[i] ?? [], embsB[j] ?? []);
+          if (score >= ALIGN_THRESHOLD) {
+            scoredPairs.push({ i, j, score });
+          }
+        }
+      }
+
+      // Sort descending by score, then by i, then by j for stability.
+      scoredPairs.sort((a, b) =>
+        b.score !== a.score ? b.score - a.score : a.i !== b.i ? a.i - b.i : a.j - b.j,
+      );
+
+      // Greedy assignment — each index used at most once per side.
+      const usedA = new Set<number>();
+      const usedB = new Set<number>();
+      const alignedPairs: AlignedPair[] = [];
+
+      for (const { i, j } of scoredPairs) {
+        if (usedA.has(i) || usedB.has(j)) continue;
+        usedA.add(i);
+        usedB.add(j);
+
+        // Indices i and j come from the nested loop over valid array bounds,
+        // so these lookups are always defined.  We use fallback objects instead
+        // of ! assertions to satisfy ESLint's no-non-null-assertion rule.
+        const clauseA = clausesA[i] ?? clausesA[0];
+        const clauseB = clausesB[j] ?? clausesB[0];
+        if (!clauseA || !clauseB) continue; // guard for empty arrays (theoretically impossible here)
+
+        alignedPairs.push({
+          pairIndex: alignedPairs.length + 1,
+          docA: {
+            clause_id: clauseA.clause_id,
+            section_reference: clauseA.section_reference,
+            plain_language_summary: clauseA.plain_language_summary,
+          },
+          docB: {
+            clause_id: clauseB.clause_id,
+            section_reference: clauseB.section_reference,
+            plain_language_summary: clauseB.plain_language_summary,
+          },
+        });
+      }
+
+      // Unmatched indices — no Gemini call, just list them.
+      const unmatchedA = clausesA.map((c, i) => ({ ...c, i })).filter(({ i }) => !usedA.has(i));
+      const unmatchedB = clausesB.map((c, j) => ({ ...c, j })).filter(({ j }) => !usedB.has(j));
+
+      // ── Batched Gemini call for aligned pairs ────────────────────────────────
+
+      const docAType = docA.classification?.document_type ?? "other";
+      const docBType = docB.classification?.document_type ?? "other";
+      const docALabel = `Document A (${docAType})`;
+      const docBLabel = `Document B (${docBType})`;
+
+      // If no pairs were aligned, skip the Gemini call entirely.
+      let geminiComparisons: {
+        topic: string;
+        doc_a_summary: string;
+        doc_b_summary: string;
+        change_description: string;
+        favors: "doc_a" | "doc_b" | "neutral";
+      }[] = [];
+
+      if (alignedPairs.length > 0) {
+        const prompt = buildComparePrompt(alignedPairs, docALabel, docBLabel);
+        const rawResponse = await generateStructured(prompt, compareResponseSchema);
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(rawResponse);
+        } catch {
+          throw new AppError(
+            502,
+            "Comparison service returned an unexpected response. Please try again.",
+          );
+        }
+
+        const result = compareResponseSchema.safeParse(parsed);
+        if (!result.success) {
+          throw new AppError(
+            502,
+            "Comparison service returned an invalid response. Please try again.",
+          );
+        }
+
+        geminiComparisons = result.data.comparisons;
+      }
+
+      // ── Build final comparisons array ────────────────────────────────────────
+      // Aligned pairs (with Gemini-generated analysis) come first, then
+      // "only in A" entries, then "only in B" entries.
+
+      type AlignedEntry = {
+        match_type: "aligned";
+        topic: string;
+        doc_a_summary: string;
+        doc_b_summary: string;
+        change_description: string;
+        favors: "doc_a" | "doc_b" | "neutral";
+      };
+      type OnlyEntry = {
+        match_type: "only_in_a" | "only_in_b";
+        topic: string;
+        summary: string;
+      };
+      type ComparisonEntry = AlignedEntry | OnlyEntry;
+
+      const comparisons: ComparisonEntry[] = [
+        // Aligned pairs — zip with Gemini output by position.
+        ...alignedPairs.map((pair, idx) => {
+          const g = geminiComparisons[idx];
+          return {
+            match_type: "aligned" as const,
+            topic: g?.topic ?? pair.docA.section_reference,
+            doc_a_summary: g?.doc_a_summary ?? pair.docA.plain_language_summary,
+            doc_b_summary: g?.doc_b_summary ?? pair.docB.plain_language_summary,
+            change_description: g?.change_description ?? "",
+            favors: g?.favors ?? ("neutral" as const),
+          };
+        }),
+        // Unmatched clauses from Document A.
+        ...unmatchedA.map((c) => ({
+          match_type: "only_in_a" as const,
+          topic: c.section_reference,
+          summary: c.plain_language_summary,
+        })),
+        // Unmatched clauses from Document B.
+        ...unmatchedB.map((c) => ({
+          match_type: "only_in_b" as const,
+          topic: c.section_reference,
+          summary: c.plain_language_summary,
+        })),
+      ];
+
+      // ── Respond ──────────────────────────────────────────────────────────────
+
+      res.status(200).json({
+        doc_a_id: docAId,
+        doc_b_id: docBId,
+        doc_a_type: docAType,
+        doc_b_type: docBType,
+        aligned_count: alignedPairs.length,
+        only_in_a_count: unmatchedA.length,
+        only_in_b_count: unmatchedB.length,
+        comparisons,
       });
     } catch (err) {
       next(err);
