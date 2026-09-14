@@ -40,9 +40,11 @@ import {
 } from "../prompts/analyze.js";
 import { buildAskPrompt, askResponseSchema } from "../prompts/ask.js";
 import { buildComparePrompt, compareResponseSchema, type AlignedPair } from "../prompts/compare.js";
+import { buildExportPrompt, exportResponseSchema } from "../prompts/export.js";
 import type { DocumentType } from "../prompts/classify.js";
 import { prioritizeClauses, parsePersona } from "../services/decisionEngine.js";
 import { topKChunks, cosineSimilarity } from "../lib/similarity.js";
+import { renderExportMarkdown } from "../lib/renderMarkdown.js";
 
 // ── Resolve path to reference-clauses/ ───────────────────────────────────────
 // reference-clauses/ lives at the repo root (two levels above src/routes/).
@@ -938,6 +940,186 @@ documentsRouter.post(
         only_in_a_count: unmatchedA.length,
         only_in_b_count: unmatchedB.length,
         comparisons,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Export rate limiter ─────────────────────────────────────────────────────────────
+
+const exportRateLimit = rateLimit({
+  windowMs: 60 * 1_000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many export requests. Please wait before trying again." },
+});
+
+// ── Export route ─────────────────────────────────────────────────────────────
+
+/** Maximum number of out-of-scope questions accepted per export call. */
+const MAX_OOS_QUESTIONS = 20;
+
+/** Maximum characters per out-of-scope question string. */
+const MAX_OOS_CHARS = 2_000;
+
+/**
+ * POST /api/documents/:id/export
+ *
+ * Generates a concrete action checklist and a list of lawyer questions from
+ * the already-computed clause analysis.  Returns both structured JSON and a
+ * Markdown-formatted string for display or download.
+ *
+ * Body (all optional):
+ *   {
+ *     "persona": "tenant",          // drives prompt tone; default: "unknown"
+ *     "out_of_scope_questions": [   // from /ask responses where in_scope=false
+ *       "Does this lease allow subletting?"
+ *     ]
+ *   }
+ *
+ * Success response (200):
+ *   {
+ *     "documentId": "...",
+ *     "document_type": "lease",
+ *     "persona": "tenant",
+ *     "checklist": ["Read the deposit clause...", ...],
+ *     "lawyer_questions": ["Under clause 4, can the landlord...?", ...],
+ *     "markdown": "# ClauseWise Export ...\n"
+ *   }
+ */
+documentsRouter.post(
+  "/:id/export",
+  exportRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params as { id: string };
+
+      // ── Retrieve document ────────────────────────────────────────────────────
+
+      const doc = getDocument(id);
+      if (!doc) {
+        throw new AppError(
+          404,
+          "Document not found or has expired. Please upload the document again.",
+        );
+      }
+
+      // ── Require analysis ─────────────────────────────────────────────────────────
+
+      if (!doc.analysis) {
+        throw new AppError(
+          400,
+          "Document has not been analysed yet. Call POST /:id/analyze before exporting.",
+        );
+      }
+
+      // ── Parse body ─────────────────────────────────────────────────────────────
+
+      const body = req.body as Record<string, unknown> | undefined;
+
+      // Persona: drives prompt tone and Markdown header label.
+      const persona = parsePersona(body?.["persona"]);
+
+      // Out-of-scope questions: validated array of strings, deduplicated.
+      const rawOos = body?.["out_of_scope_questions"];
+      let outOfScopeQuestions: string[] = [];
+
+      if (rawOos !== undefined) {
+        if (!Array.isArray(rawOos)) {
+          throw new AppError(400, '"out_of_scope_questions" must be an array of strings.');
+        }
+        for (const item of rawOos) {
+          if (typeof item !== "string") {
+            throw new AppError(
+              400,
+              '"out_of_scope_questions" must be an array of strings; non-string item found.',
+            );
+          }
+        }
+        if (rawOos.length > MAX_OOS_QUESTIONS) {
+          throw new AppError(
+            400,
+            `"out_of_scope_questions" exceeds the maximum of ${MAX_OOS_QUESTIONS} items.`,
+          );
+        }
+        // Trim, cap per-item length, filter empty.
+        outOfScopeQuestions = (rawOos as string[])
+          .map((q) => q.trim().slice(0, MAX_OOS_CHARS))
+          .filter((q) => q.length > 0);
+      }
+
+      // ── Build prompt ─────────────────────────────────────────────────────────────
+
+      const documentType = doc.classification?.document_type ?? "other";
+      const { summary, clauses } = doc.analysis;
+
+      const prompt = buildExportPrompt(
+        summary,
+        clauses,
+        documentType,
+        persona,
+        outOfScopeQuestions,
+      );
+
+      // ── Call Gemini ──────────────────────────────────────────────────────────────
+
+      const rawResponse = await generateStructured(prompt, exportResponseSchema);
+
+      // ── Parse and validate (AGENTS.md: validate every LLM response) ─────────
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawResponse);
+      } catch {
+        throw new AppError(
+          502,
+          "Export service returned an unexpected response. Please try again.",
+        );
+      }
+
+      const result = exportResponseSchema.safeParse(parsed);
+      if (!result.success) {
+        throw new AppError(502, "Export service returned an invalid response. Please try again.");
+      }
+
+      // ── Fold in out-of-scope questions ──────────────────────────────────────────
+      // Deduplicate: if Gemini already generated a question very similar to
+      // an out-of-scope question (exact trimmed-lowercase match), skip it.
+      // Otherwise append out-of-scope questions after the Gemini questions.
+
+      const generatedNormalised = new Set(
+        result.data.lawyer_questions.map((q) => q.trim().toLowerCase()),
+      );
+
+      const uniqueOosQuestions = outOfScopeQuestions.filter(
+        (q) => !generatedNormalised.has(q.trim().toLowerCase()),
+      );
+
+      const allLawyerQuestions = [...result.data.lawyer_questions, ...uniqueOosQuestions];
+
+      // ── Render Markdown ────────────────────────────────────────────────────────────
+
+      const markdown = renderExportMarkdown({
+        documentType,
+        persona,
+        summary,
+        checklist: result.data.checklist,
+        lawyerQuestions: allLawyerQuestions,
+        date: new Date().toISOString().slice(0, 10), // "YYYY-MM-DD"
+      });
+
+      // ── Respond ──────────────────────────────────────────────────────────────
+
+      res.status(200).json({
+        documentId: id,
+        document_type: documentType,
+        persona,
+        checklist: result.data.checklist,
+        lawyer_questions: allLawyerQuestions,
+        markdown,
       });
     } catch (err) {
       next(err);
