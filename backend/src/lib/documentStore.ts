@@ -9,6 +9,8 @@
  * state visible to tests — callers interact through the typed functions below.
  */
 
+import type { Classification } from "../prompts/classify.js";
+
 /** A single chunk of text derived from a document. */
 export interface Chunk {
   /** 0-based position within the document. */
@@ -26,6 +28,8 @@ export interface StoredDocument {
   ingestedAt: string;
   /** Approximate character count of the original text. */
   charCount: number;
+  /** Classification result — populated by POST /:id/classify. */
+  classification?: Classification;
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -84,6 +88,17 @@ export function getDocument(documentId: string): StoredDocument | undefined {
 /** Explicitly remove a document before its TTL (e.g. user-triggered deletion). */
 export function deleteDocument(documentId: string): void {
   store.delete(documentId);
+}
+
+/**
+ * Attach a classification result to an already-stored document.
+ * No-op if the document has already expired or was never stored.
+ */
+export function setClassification(documentId: string, classification: Classification): void {
+  const doc = store.get(documentId);
+  if (doc) {
+    doc.classification = classification;
+  }
 }
 
 /** Exposed only for unit tests — do not call in production code. */

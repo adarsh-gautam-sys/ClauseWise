@@ -20,7 +20,9 @@ import { v4 as uuidv4 } from "uuid";
 import rateLimit from "express-rate-limit";
 import { ALLOWED_MIME_TYPES, AppError, extractText } from "../lib/textExtractor.js";
 import { chunkText, previewText } from "../lib/chunker.js";
-import { storeDocument } from "../lib/documentStore.js";
+import { storeDocument, getDocument, setClassification } from "../lib/documentStore.js";
+import { generateStructured } from "../services/geminiClient.js";
+import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
 
 export const documentsRouter = Router();
 
@@ -168,6 +170,97 @@ documentsRouter.post(
       });
     } catch (err) {
       // Forward AppErrors and unexpected errors alike to centralized middleware.
+      next(err);
+    }
+  },
+);
+
+// ── Classify route ────────────────────────────────────────────────────────────
+
+/**
+ * 5 classify calls per IP per minute.
+ * Each call makes a Gemini API request; tighter than the upload limit to
+ * protect free-tier quota from accidental loops or abuse.
+ */
+const classifyRateLimit = rateLimit({
+  windowMs: 60 * 1_000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many classification requests. Please wait a moment before trying again." },
+});
+
+/**
+ * POST /api/documents/:id/classify
+ *
+ * Retrieves the stored document, sends its text to Gemini for classification,
+ * validates the structured response with Zod, stores the result, and returns it.
+ *
+ * Success response (200):
+ *   {
+ *     "documentId": "<uuid>",
+ *     "document_type": "nda",
+ *     "confidence": "high"
+ *   }
+ */
+documentsRouter.post(
+  "/:id/classify",
+  classifyRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params as { id: string };
+
+      // ── Retrieve document ────────────────────────────────────────────────────
+
+      const doc = getDocument(id);
+      if (!doc) {
+        throw new AppError(
+          404,
+          "Document not found or has expired. Please upload the document again.",
+        );
+      }
+
+      // ── Build prompt (template in prompts/classify.ts per AGENTS.md) ─────────
+
+      const prompt = buildClassifyPrompt(doc.fullText);
+
+      // ── Call Gemini — only via geminiClient.ts, per AGENTS.md —————————————
+
+      const rawResponse = await generateStructured(prompt, classificationSchema);
+
+      // ── Parse & validate (AGENTS.md: validate every LLM response before use) ──
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawResponse);
+      } catch {
+        throw new AppError(
+          502,
+          "Classification service returned an unexpected response. Please try again.",
+        );
+      }
+
+      const result = classificationSchema.safeParse(parsed);
+      if (!result.success) {
+        throw new AppError(
+          502,
+          "Classification service returned an invalid response. Please try again.",
+        );
+      }
+
+      const classification = result.data;
+
+      // ── Store alongside document ─────────────────────────────────────────────
+
+      setClassification(id, classification);
+
+      // ── Respond ──────────────────────────────────────────────────────────────
+
+      res.status(200).json({
+        documentId: id,
+        ...classification,
+      });
+    } catch (err) {
       next(err);
     }
   },

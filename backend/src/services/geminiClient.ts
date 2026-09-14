@@ -12,6 +12,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { logger } from "../lib/logger.js";
+import { AppError } from "../lib/textExtractor.js";
 
 // ── Startup guard ─────────────────────────────────────────────────────────────
 
@@ -32,8 +33,8 @@ const genai = new GoogleGenAI({ apiKey });
 
 // ── Model constants ───────────────────────────────────────────────────────────
 
-const GENERATION_MODEL = "gemini-2.0-flash";
-const EMBEDDING_MODEL = "text-embedding-004";
+const GENERATION_MODEL = "gemini-3.6-flash";
+const EMBEDDING_MODEL = "gemini-embedding-001";
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -47,24 +48,62 @@ const EMBEDDING_MODEL = "text-embedding-004";
  *                parsed result with `schema.parse()` before use.
  * @returns       The raw model response text (valid JSON expected).
  */
+// ── API error normaliser ──────────────────────────────────────────────────────
+
+/**
+ * Convert a Gemini SDK error to an AppError with a meaningful HTTP status.
+ * Raw Gemini errors carry a numeric `code` (gRPC) mapped to HTTP statuses:
+ *   429  → too many requests / quota exhausted  → 429
+ *   503  → service unavailable                  → 503
+ *   400  → bad request (schema, invalid model)  → 502 (upstream bad response)
+ *   404  → model not found                      → 502
+ *   default                                     → 502
+ */
+function normaliseGeminiError(err: unknown): AppError {
+  if (err != null && typeof err === "object" && "error" in err) {
+    const inner = (err as { error: unknown }).error;
+    if (inner != null && typeof inner === "object" && "code" in inner) {
+      const code = (inner as { code: number }).code;
+      const msg = "message" in inner ? String((inner as { message: unknown }).message) : "";
+
+      if (code === 429) {
+        // Quota exhausted — surface to user so they can retry later.
+        return new AppError(429, "AI service quota exhausted. Please try again in a few moments.");
+      }
+      if (code === 503) {
+        return new AppError(503, "AI service temporarily unavailable. Please try again shortly.");
+      }
+      // Log non-quota upstream errors at error level without exposing internals.
+      logger.error("Gemini upstream error", msg);
+    }
+  }
+  logger.error("Gemini call failed", err);
+  return new AppError(502, "AI service returned an unexpected error. Please try again.");
+}
+
 export async function generateStructured(prompt: string, schema: z.ZodType): Promise<string> {
   // Zod v4 ships toJSONSchema() natively — no external package required.
   const jsonSchema = z.toJSONSchema(schema);
 
-  const response = await genai.models.generateContent({
-    model: GENERATION_MODEL,
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: jsonSchema,
-    },
-  });
+  try {
+    const response = await genai.models.generateContent({
+      model: GENERATION_MODEL,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: jsonSchema,
+      },
+    });
 
-  const text = response.text;
-  if (!text) {
-    throw new Error("Gemini returned an empty response for generateStructured");
+    const text = response.text;
+    if (!text) {
+      throw new AppError(502, "AI service returned an empty response. Please try again.");
+    }
+    return text;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw normaliseGeminiError(err);
   }
-  return text;
 }
 
 /**
@@ -74,14 +113,19 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
  * @returns     Float array representing the embedding.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const response = await genai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: [{ role: "user", parts: [{ text }] }],
-  });
+  try {
+    const response = await genai.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: [{ role: "user", parts: [{ text }] }],
+    });
 
-  const values = response.embeddings?.[0]?.values;
-  if (!values || values.length === 0) {
-    throw new Error("Gemini returned an empty embedding");
+    const values = response.embeddings?.[0]?.values;
+    if (!values || values.length === 0) {
+      throw new AppError(502, "AI service returned an empty embedding.");
+    }
+    return values;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw normaliseGeminiError(err);
   }
-  return values;
 }
