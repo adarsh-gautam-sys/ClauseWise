@@ -28,16 +28,19 @@ import {
   getDocument,
   setClassification,
   setAnalysis,
+  setChunkEmbeddings,
 } from "../lib/documentStore.js";
-import { generateStructured } from "../services/geminiClient.js";
+import { generateStructured, embedText } from "../services/geminiClient.js";
 import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
 import {
   buildAnalyzePrompt,
   analysisResponseSchema,
   type AnalysisResponse,
 } from "../prompts/analyze.js";
+import { buildAskPrompt, askResponseSchema } from "../prompts/ask.js";
 import type { DocumentType } from "../prompts/classify.js";
 import { prioritizeClauses, parsePersona } from "../services/decisionEngine.js";
+import { topKChunks } from "../lib/similarity.js";
 
 // ── Resolve path to reference-clauses/ ───────────────────────────────────────
 // reference-clauses/ lives at the repo root (two levels above src/routes/).
@@ -486,6 +489,160 @@ documentsRouter.post(
         persona,
         summary: analysis.summary,
         clauses: prioritisedClauses,
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// ── Ask (Q&A) rate limiter ────────────────────────────────────────────────────
+
+/**
+ * 5 Q&A calls per IP per minute.
+ * On the first call for a document the handler embeds every chunk (N Gemini
+ * calls), then embeds the question, then generates an answer — so it is the
+ * most Gemini-intensive endpoint.  On subsequent calls only 2 Gemini calls
+ * are made (question embedding + generation).  A tight rate limit protects
+ * the free-tier quota and prevents abuse.
+ */
+const askRateLimit = rateLimit({
+  windowMs: 60 * 1_000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many Q&A requests. Please wait a moment before trying again." },
+});
+
+// ── Ask route ─────────────────────────────────────────────────────────────────
+
+/** Maximum question length in characters. */
+const MAX_QUESTION_CHARS = 2_000;
+
+/** Number of top chunks to retrieve for each question (RAG top-k). */
+const TOP_K = 4;
+
+/**
+ * POST /api/documents/:id/ask
+ *
+ * Grounded Q&A: retrieves the most relevant document chunks via cosine
+ * similarity on cached embeddings, then generates an answer from ONLY those
+ * chunks.  The model is instructed to cite the chunks it used and to return
+ * in_scope=false when the question falls outside the document's content.
+ *
+ * Body: { "question": string }  (required, non-empty, max 2 000 chars)
+ *
+ * Success response (200) — in scope:
+ *   {
+ *     "documentId": "<uuid>",
+ *     "answer": "The security deposit is two months' rent...",
+ *     "cited_sections": ["[CHUNK 2]"],
+ *     "in_scope": true
+ *   }
+ *
+ * Success response (200) — out of scope:
+ *   {
+ *     "documentId": "<uuid>",
+ *     "answer": "This question could not be answered from the provided document content.",
+ *     "cited_sections": [],
+ *     "in_scope": false
+ *   }
+ */
+documentsRouter.post(
+  "/:id/ask",
+  askRateLimit,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params as { id: string };
+
+      // ── Validate question ───────────────────────────────────────────────────
+
+      const body = req.body as Record<string, unknown> | undefined;
+      const rawQuestion = body?.["question"];
+
+      if (typeof rawQuestion !== "string" || rawQuestion.trim().length === 0) {
+        throw new AppError(400, 'A "question" string is required in the request body.');
+      }
+
+      const question = rawQuestion.trim();
+
+      if (question.length > MAX_QUESTION_CHARS) {
+        throw new AppError(
+          400,
+          `Question exceeds the ${MAX_QUESTION_CHARS.toLocaleString()}-character limit.`,
+        );
+      }
+
+      // ── Retrieve document ───────────────────────────────────────────────────
+
+      const doc = getDocument(id);
+      if (!doc) {
+        throw new AppError(
+          404,
+          "Document not found or has expired. Please upload the document again.",
+        );
+      }
+
+      // ── Lazy chunk embedding (cache on first call, reuse on subsequent) ─────
+      // Chunks are embedded sequentially to stay within the free-tier rate
+      // limit (15 req/min).  The embeddings are cached on the document record
+      // so this block runs at most ONCE per uploaded document — PRD §12.
+
+      let chunkEmbeddings: number[][];
+
+      if (doc.chunkEmbeddings) {
+        // Cached from a previous /ask call — skip re-embedding.
+        chunkEmbeddings = doc.chunkEmbeddings;
+      } else {
+        // First question for this document — embed all chunks sequentially.
+        const embeddings: number[][] = [];
+        for (const chunk of doc.chunks) {
+          // AGENTS.md: all Gemini calls go through geminiClient.ts only.
+          const embedding = await embedText(chunk.text);
+          embeddings.push(embedding);
+        }
+        setChunkEmbeddings(id, embeddings);
+        chunkEmbeddings = embeddings;
+      }
+
+      // ── Embed the question ──────────────────────────────────────────────────
+      // AGENTS.md rule: question text is NOT logged — embedText receives only
+      // the raw string and no log statement references it.
+
+      const questionEmbedding = await embedText(question);
+
+      // ── Retrieve top-k chunks by cosine similarity ──────────────────────────
+
+      const topChunks = topKChunks(questionEmbedding, chunkEmbeddings, doc.chunks, TOP_K);
+
+      // ── Build prompt and call Gemini ────────────────────────────────────────
+
+      const documentType = doc.classification?.document_type ?? "other";
+      const prompt = buildAskPrompt(question, topChunks, documentType);
+
+      const rawResponse = await generateStructured(prompt, askResponseSchema);
+
+      // ── Parse and validate (AGENTS.md: validate every LLM response) ─────────
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(rawResponse);
+      } catch {
+        throw new AppError(502, "Q&A service returned an unexpected response. Please try again.");
+      }
+
+      const result = askResponseSchema.safeParse(parsed);
+      if (!result.success) {
+        throw new AppError(502, "Q&A service returned an invalid response. Please try again.");
+      }
+
+      // ── Respond ─────────────────────────────────────────────────────────────
+
+      res.status(200).json({
+        documentId: id,
+        answer: result.data.answer,
+        cited_sections: result.data.cited_sections,
+        in_scope: result.data.in_scope,
       });
     } catch (err) {
       next(err);

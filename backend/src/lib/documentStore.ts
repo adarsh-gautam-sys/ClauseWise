@@ -33,6 +33,12 @@ export interface StoredDocument {
   classification?: Classification;
   /** Clause analysis result — populated by POST /:id/analyze. */
   analysis?: AnalysisResponse;
+  /**
+   * Dense embedding vectors for each chunk — populated lazily on the first
+   * POST /:id/ask call and reused for every subsequent question on this
+   * document.  Parallel array: chunkEmbeddings[i] is the embedding for chunks[i].
+   */
+  chunkEmbeddings?: number[][];
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -112,6 +118,19 @@ export function setAnalysis(documentId: string, analysis: AnalysisResponse): voi
   const doc = store.get(documentId);
   if (doc) {
     doc.analysis = analysis;
+  }
+}
+
+/**
+ * Cache the pre-computed chunk embeddings on the document record.
+ * Called once per document on the first Q&A request; subsequent questions
+ * skip the embedding step and read directly from this cache.
+ * No-op if the document has already expired or was never stored.
+ */
+export function setChunkEmbeddings(documentId: string, embeddings: number[][]): void {
+  const doc = store.get(documentId);
+  if (doc) {
+    doc.chunkEmbeddings = embeddings;
   }
 }
 
