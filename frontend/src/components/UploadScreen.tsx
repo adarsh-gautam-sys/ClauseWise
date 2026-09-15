@@ -22,21 +22,24 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DocumentDropzone } from "@/components/DocumentDropzone";
 import { cn } from "@/lib/utils";
 import type { Persona } from "@/components/PersonaSelect";
+import type { UploadResult } from "@/types";
+
+// Re-export for legacy imports
+export type { UploadResult };
 
 const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:3001";
-
-export interface UploadResult {
-  documentId: string;
-  chunkCount: number;
-  preview: string;
-}
 
 interface UploadScreenProps {
   persona: Persona | "";
   onSuccess: (result: UploadResult) => void;
+  /** Optional heading override — defaults to upload screen hero text. */
+  label?: string;
+  /** Optional submit button label — defaults to "Analyze Document". */
+  submitLabel?: string;
 }
 
-export function UploadScreen({ persona, onSuccess }: UploadScreenProps) {
+export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze Document" }: UploadScreenProps) {
+
   const [mode, setMode]       = useState<"file" | "paste">("file");
   const [file, setFile]       = useState<File | null>(null);
   const [text, setText]       = useState("");
@@ -111,7 +114,7 @@ export function UploadScreen({ persona, onSuccess }: UploadScreenProps) {
           className="text-2xl font-semibold tracking-tight sm:text-3xl"
           style={{ color: "var(--foreground)" }}
         >
-          Understand what you're signing
+          {label ?? "Understand what you're signing"}
         </h1>
         <p
           className="mx-auto mt-2.5 max-w-sm text-sm leading-relaxed"
@@ -211,7 +214,7 @@ export function UploadScreen({ persona, onSuccess }: UploadScreenProps) {
               </>
             ) : (
               <>
-                <span>Analyze Document</span>
+                <span>{submitLabel}</span>
                 <ArrowRight size={15} aria-hidden="true" />
               </>
             )}
