@@ -120,8 +120,9 @@
   --radius: 0.5rem;                       /* base radius for shadcn components */
 
   /* ── Severity tokens (color + MUST be paired with text label in markup) ─── */
-  --severity-high:    oklch(0.60 0.18 240);            /* blue  */
-  --severity-high-bg: oklch(0.60 0.18 240 / 0.15);
+  /* severity-high: red-slate — distinct from primary blue action color */
+  --severity-high:    oklch(0.60 0.20 15);             /* red-slate  */
+  --severity-high-bg: oklch(0.60 0.20 15  / 0.15);
   --severity-medium:    oklch(0.78 0.16 65);           /* amber */
   --severity-medium-bg: oklch(0.78 0.16 65  / 0.15);
   --severity-low:    oklch(0.64 0.14 160);             /* green */

@@ -122,17 +122,17 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
           {clause.plain_language_summary}
         </p>
 
-        {/* Why it matters */}
+        {/* Why it matters — inset shadow instead of banned border-l-2 */}
         <div
-          className="mt-3 rounded-lg border-l-2 py-2 pl-3 pr-2"
+          className="mt-3 rounded-lg px-3 py-2.5"
           style={{
-            borderLeftColor:
-              clause.severity === "high"
-                ? "var(--severity-high)"
-                : clause.severity === "medium"
-                  ? "var(--severity-medium)"
-                  : "var(--severity-low)",
             background: "var(--muted)",
+            boxShadow:
+              clause.severity === "high"
+                ? "inset 3px 0 0 var(--severity-high)"
+                : clause.severity === "medium"
+                  ? "inset 3px 0 0 var(--severity-medium)"
+                  : "inset 3px 0 0 var(--severity-low)",
           }}
         >
           <p
@@ -148,6 +148,7 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
             {clause.why_it_matters}
           </p>
         </div>
+
       </AccordionContent>
     </AccordionItem>
   );
