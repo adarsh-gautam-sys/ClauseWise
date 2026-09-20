@@ -99,7 +99,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, initialDelayMs
       attempt++;
       const code = extractErrorCode(err);
       if (attempt <= maxRetries && (code === 503 || code === 429)) {
-        logger.warn(`Gemini call returned ${code}; retrying attempt ${attempt}/${maxRetries} after ${delay}ms`);
+        logger.info(`Gemini call returned ${code}; retrying attempt ${attempt}/${maxRetries} after ${delay}ms`);
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
         continue;
