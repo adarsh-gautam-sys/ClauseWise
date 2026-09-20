@@ -21,13 +21,12 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DocumentDropzone } from "@/components/DocumentDropzone";
 import { cn } from "@/lib/utils";
+import { uploadFile, uploadText } from "@/lib/api";
 import type { Persona } from "@/components/PersonaSelect";
 import type { UploadResult } from "@/types";
 
 // Re-export for legacy imports
 export type { UploadResult };
-
-const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:3001";
 
 interface UploadScreenProps {
   persona: Persona | "";
@@ -72,33 +71,11 @@ export function UploadScreen({
     setUploadError(null);
 
     try {
-      let response: Response;
+      const result =
+        mode === "file" && file
+          ? await uploadFile(file)
+          : await uploadText(text.trim());
 
-      if (mode === "file" && file) {
-        const body = new FormData();
-        body.append("document", file);
-        response = await fetch(`${API_BASE}/api/documents`, {
-          method: "POST",
-          body,
-        });
-      } else {
-        response = await fetch(`${API_BASE}/api/documents`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: text.trim() }),
-        });
-      }
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-        const msg =
-          typeof body["error"] === "string"
-            ? body["error"]
-            : `Upload failed (HTTP ${response.status}). Please try again.`;
-        throw new Error(msg);
-      }
-
-      const result = (await response.json()) as UploadResult;
       onSuccess(result);
     } catch (err) {
       setUploadError(

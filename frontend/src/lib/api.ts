@@ -16,7 +16,7 @@ import type {
   ExportResult,
 } from "@/types";
 
-const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "http://localhost:3001";
+const API_BASE = (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
 
 /** Extract a readable error message from an API error body. */
 async function extractError(res: Response): Promise<string> {
