@@ -66,7 +66,7 @@ function normaliseGeminiError(err: unknown): AppError {
       const code = (inner as { code: number }).code;
       const msg = "message" in inner ? String((inner as { message: unknown }).message) : "";
 
-      if (code === 429) {
+      if (code === 429 || code === 402) {
         // Quota exhausted — surface to user so they can retry later.
         return new AppError(429, "AI service quota exhausted. Please try again in a few moments.");
       }
