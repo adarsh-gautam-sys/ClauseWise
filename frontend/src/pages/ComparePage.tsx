@@ -29,13 +29,7 @@ interface ComparePageProps {
   persona: Persona | "";
 }
 
-type Phase =
-  | "upload_b"
-  | "analyzing_b"
-  | "ready"
-  | "comparing"
-  | "done"
-  | "error";
+type Phase = "upload_b" | "analyzing_b" | "ready" | "comparing" | "done" | "error";
 
 export function ComparePage({ docAResult, persona }: ComparePageProps) {
   const [phase, setPhase] = useState<Phase>("upload_b");
@@ -78,9 +72,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
     } catch (err) {
       if (signal.aborted) return;
       setError(
-        err instanceof Error
-          ? err.message
-          : "Could not analyze Document B. Please try again.",
+        err instanceof Error ? err.message : "Could not analyze Document B. Please try again.",
       );
       setPhase("error");
     }
@@ -97,21 +89,13 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
     const { signal } = controller;
 
     try {
-      const result = await compareDocuments(
-        docAResult.documentId,
-        docBUpload.documentId,
-        signal,
-      );
+      const result = await compareDocuments(docAResult.documentId, docBUpload.documentId, signal);
       if (signal.aborted) return;
       setCompareResult(result);
       setPhase("done");
     } catch (err) {
       if (signal.aborted) return;
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Comparison failed. Please try again.",
-      );
+      setError(err instanceof Error ? err.message : "Comparison failed. Please try again.");
       setPhase("error");
     }
   };
@@ -128,44 +112,27 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
       {/* ARIA live region */}
-      <div
-        id={liveId}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
+      <div id={liveId} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {phase === "analyzing_b" && "Analyzing Document B…"}
-        {phase === "comparing"   && "Comparing documents…"}
-        {phase === "done"        && `Comparison complete. ${compareResult?.aligned_count ?? 0} clauses aligned.`}
+        {phase === "comparing" && "Comparing documents…"}
+        {phase === "done" &&
+          `Comparison complete. ${compareResult?.aligned_count ?? 0} clauses aligned.`}
       </div>
 
       {/* ── Page header ───────────────────────────────────────────────── */}
       <div>
-        <h1
-          className="text-xl font-semibold tracking-tight"
-          style={{ color: "var(--foreground)" }}
-        >
+        <h1 className="text-xl font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
           Compare Documents
         </h1>
         <p className="mt-1 text-sm" style={{ color: "var(--muted-foreground)" }}>
-          Upload a second document to compare it clause-by-clause against your
-          analyzed document.
+          Upload a second document to compare it clause-by-clause against your analyzed document.
         </p>
       </div>
 
       {/* ── Document labels ───────────────────────────────────────────── */}
       <div className="grid gap-3 sm:grid-cols-2">
-        <DocLabel
-          label="Document A"
-          type={docAResult.document_type}
-          ready
-        />
-        <DocLabel
-          label="Document B"
-          type={docBAnalysis?.document_type}
-          ready={!!docBAnalysis}
-        />
+        <DocLabel label="Document A" type={docAResult.document_type} ready />
+        <DocLabel label="Document B" type={docBAnalysis?.document_type} ready={!!docBAnalysis} />
       </div>
 
       <Separator style={{ background: "var(--border)" }} />
@@ -174,7 +141,9 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
       {phase === "upload_b" && (
         <UploadScreen
           persona={persona}
-          onSuccess={(r) => { void handleDocBUploaded(r); }}
+          onSuccess={(r) => {
+            void handleDocBUploaded(r);
+          }}
           label="Upload Document B"
           submitLabel="Analyze Document B"
         />
@@ -182,10 +151,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
 
       {/* ── Analyzing B ───────────────────────────────────────────────── */}
       {phase === "analyzing_b" && (
-        <LoadingState
-          label="Analyzing Document B…"
-          onCancel={handleCancelAnalysis}
-        />
+        <LoadingState label="Analyzing Document B…" onCancel={handleCancelAnalysis} />
       )}
 
       {/* ── Ready to compare ──────────────────────────────────────────── */}
@@ -196,7 +162,9 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
           </p>
           <div className="flex gap-3">
             <Button
-              onClick={() => { void handleCompare(); }}
+              onClick={() => {
+                void handleCompare();
+              }}
               className="gap-2"
               style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
               aria-label="Compare the two documents"
@@ -218,9 +186,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
       )}
 
       {/* ── Comparing ─────────────────────────────────────────────────── */}
-      {phase === "comparing" && (
-        <LoadingState label="Aligning clauses across documents…" />
-      )}
+      {phase === "comparing" && <LoadingState label="Aligning clauses across documents…" />}
 
       {/* ── Error ─────────────────────────────────────────────────────── */}
       {phase === "error" && (
@@ -244,8 +210,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
               className="text-sm font-semibold"
               style={{ color: "var(--foreground)" }}
             >
-              {compareResult.aligned_count} aligned ·{" "}
-              {compareResult.only_in_a_count} only in A ·{" "}
+              {compareResult.aligned_count} aligned · {compareResult.only_in_a_count} only in A ·{" "}
               {compareResult.only_in_b_count} only in B
             </h2>
             <Button
@@ -272,15 +237,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function DocLabel({
-  label,
-  type,
-  ready,
-}: {
-  label: string;
-  type?: string;
-  ready: boolean;
-}) {
+function DocLabel({ label, type, ready }: { label: string; type?: string; ready: boolean }) {
   return (
     <div
       className="flex items-center gap-3 rounded-xl border px-4 py-3"
@@ -308,11 +265,7 @@ function DocLabel({
 
 function LoadingState({ label, onCancel }: { label: string; onCancel?: () => void }) {
   return (
-    <div
-      className="flex flex-col items-center gap-3 py-12"
-      role="status"
-      aria-label={label}
-    >
+    <div className="flex flex-col items-center gap-3 py-12" role="status" aria-label={label}>
       <Loader2
         size={28}
         className="animate-spin"

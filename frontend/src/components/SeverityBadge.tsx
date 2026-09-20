@@ -20,10 +20,7 @@ interface SeverityBadgeProps {
   className?: string;
 }
 
-const CONFIG: Record<
-  SeverityLevel,
-  { label: string; dotStyle: string; containerStyle: string }
-> = {
+const CONFIG: Record<SeverityLevel, { label: string; dotStyle: string; containerStyle: string }> = {
   high: {
     label: "High",
     dotStyle: "bg-[var(--severity-high)]",
@@ -32,8 +29,7 @@ const CONFIG: Record<
   medium: {
     label: "Medium",
     dotStyle: "bg-[var(--severity-medium)]",
-    containerStyle:
-      "bg-[var(--severity-medium-bg)] text-[var(--severity-medium)]",
+    containerStyle: "bg-[var(--severity-medium-bg)] text-[var(--severity-medium)]",
   },
   low: {
     label: "Low",

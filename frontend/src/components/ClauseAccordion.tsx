@@ -28,10 +28,7 @@ import type { Clause, ClauseTag } from "@/types";
 
 // ── Tag metadata ──────────────────────────────────────────────────────────────
 
-const TAG_META: Record<
-  ClauseTag,
-  { label: string; description: string; style: string }
-> = {
+const TAG_META: Record<ClauseTag, { label: string; description: string; style: string }> = {
   obligation: {
     label: "Obligation",
     description: "Something you must do",
@@ -40,14 +37,12 @@ const TAG_META: Record<
   right: {
     label: "Right",
     description: "Something you are entitled to",
-    style:
-      "border-[var(--severity-low)] text-[var(--severity-low)]",
+    style: "border-[var(--severity-low)] text-[var(--severity-low)]",
   },
   risk: {
     label: "Risk",
     description: "A clause that could harm your interests",
-    style:
-      "border-[var(--severity-high)] text-[var(--severity-high)]",
+    style: "border-[var(--severity-high)] text-[var(--severity-high)]",
   },
   standard: {
     label: "Standard",
@@ -93,9 +88,7 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
       }}
       data-default-open={defaultOpen}
     >
-      <AccordionTrigger
-        className="px-4 py-3.5 rounded-lg transition-colors hover:bg-[var(--muted)] [&>svg]:flex-shrink-0"
-      >
+      <AccordionTrigger className="px-4 py-3.5 rounded-lg transition-colors hover:bg-[var(--muted)] [&>svg]:flex-shrink-0">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left">
           {/* Section reference */}
           <span
@@ -114,10 +107,7 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
 
       <AccordionContent className="px-4 pb-4 pt-0">
         {/* Plain-language summary */}
-        <p
-          className="text-sm leading-relaxed"
-          style={{ color: "var(--foreground)" }}
-        >
+        <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
           {clause.plain_language_summary}
         </p>
 
@@ -140,14 +130,10 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
           >
             Why it matters
           </p>
-          <p
-            className="text-sm leading-relaxed"
-            style={{ color: "var(--foreground)" }}
-          >
+          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)" }}>
             {clause.why_it_matters}
           </p>
         </div>
-
       </AccordionContent>
     </AccordionItem>
   );
@@ -162,10 +148,7 @@ interface ClauseAccordionProps {
 export function ClauseAccordion({ clauses }: ClauseAccordionProps) {
   if (clauses.length === 0) {
     return (
-      <p
-        className="py-8 text-center text-sm"
-        style={{ color: "var(--muted-foreground)" }}
-      >
+      <p className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
         No clauses were found in this document.
       </p>
     );

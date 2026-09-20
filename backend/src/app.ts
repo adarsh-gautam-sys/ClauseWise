@@ -8,6 +8,8 @@
 
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import path from "node:path";
+import fs from "node:fs";
 import { logger } from "./lib/logger.js";
 import { documentsRouter } from "./routes/documents.js";
 import { AppError } from "./lib/textExtractor.js";
@@ -17,6 +19,13 @@ import { AppError } from "./lib/textExtractor.js";
 /**
  * Only allow requests from the Vite dev server in development.
  * The production origin should be set via the FRONTEND_ORIGIN env var.
+ *
+ * Cloud Run single-service note (defense in depth):
+ * When frontend and backend share one Cloud Run service, browser requests
+ * are same-origin and do not strictly require CORS headers. However, this
+ * restriction is retained as defense in depth against unauthorized cross-origin
+ * requests from third-party sites, and ensures smooth operation in split
+ * local-development environments where Vite runs on port 5173.
  */
 const allowedOrigin = process.env["FRONTEND_ORIGIN"] ?? "http://localhost:5173";
 
@@ -24,7 +33,7 @@ const allowedOrigin = process.env["FRONTEND_ORIGIN"] ?? "http://localhost:5173";
 
 const app = express();
 
-// CORS — restricted to frontend's dev origin
+// CORS — restricted to frontend's dev origin (defense in depth in production)
 app.use(
   cors({
     origin: allowedOrigin,
@@ -61,6 +70,60 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/documents", documentsRouter);
+
+// ── API 404 Handler ───────────────────────────────────────────────────────────
+// All unhandled routes under /api return 404 JSON and never fall through to SPA fallback.
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Endpoint not found." });
+});
+
+// ── Frontend Static Serving & SPA Fallback ────────────────────────────────────
+
+/**
+ * Resolve the directory containing the built frontend assets (frontend/dist).
+ * Checks FRONTEND_DIST_PATH, monorepo relative paths, and container layout.
+ */
+function resolveFrontendDistPath(): string | null {
+  const candidates = [
+    process.env["FRONTEND_DIST_PATH"],
+    path.resolve(import.meta.dirname, "../../frontend/dist"),
+    path.resolve(import.meta.dirname, "../frontend/dist"),
+    path.resolve(process.cwd(), "frontend/dist"),
+    path.resolve(process.cwd(), "../frontend/dist"),
+    path.resolve(process.cwd(), "public"),
+    path.resolve(import.meta.dirname, "./public"),
+  ];
+
+  for (const candidate of candidates) {
+    if (
+      candidate &&
+      fs.existsSync(candidate) &&
+      fs.existsSync(path.join(candidate, "index.html"))
+    ) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+const frontendDistPath = resolveFrontendDistPath();
+
+if (frontendDistPath) {
+  const indexHtmlPath = path.join(frontendDistPath, "index.html");
+
+  // Serve static assets from frontend/dist
+  app.use(express.static(frontendDistPath));
+
+  // SPA fallback for all client-side navigation GET routes
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.method === "GET") {
+      res.sendFile(indexHtmlPath);
+    } else {
+      next();
+    }
+  });
+}
 
 // ── 404 handler for unknown routes ────────────────────────────────────────────
 

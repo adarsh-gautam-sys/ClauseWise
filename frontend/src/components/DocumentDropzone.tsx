@@ -24,8 +24,8 @@ const ACCEPTED_TYPES = new Set([
   "text/plain",
 ]);
 const ACCEPTED_EXTENSIONS = ".pdf,.docx,.txt";
-const MAX_BYTES = 5 * 1024 * 1024;        // 5 MB — mirrors backend limit
-const MAX_PASTE_CHARS = 50_000;            // ~25 pages of dense text
+const MAX_BYTES = 5 * 1024 * 1024; // 5 MB — mirrors backend limit
+const MAX_PASTE_CHARS = 50_000; // ~25 pages of dense text
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -68,9 +68,7 @@ export function DocumentDropzone({
         return;
       }
       if (incoming.size > MAX_BYTES) {
-        setValidationError(
-          `File is too large (${formatBytes(incoming.size)}). Maximum is 5 MB.`,
-        );
+        setValidationError(`File is too large (${formatBytes(incoming.size)}). Maximum is 5 MB.`);
         onFileChange(null);
         return;
       }
@@ -131,11 +129,7 @@ export function DocumentDropzone({
           disabled={disabled}
           className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2 sm:py-1 text-xs inline-flex items-center"
           style={{ color: "var(--primary)" }}
-          aria-label={
-            mode === "file"
-              ? "Switch to paste text mode"
-              : "Switch to file upload mode"
-          }
+          aria-label={mode === "file" ? "Switch to paste text mode" : "Switch to file upload mode"}
         >
           {mode === "file" ? (
             <>
@@ -152,13 +146,7 @@ export function DocumentDropzone({
       </div>
 
       {/* ARIA live region for screen-reader announcements */}
-      <div
-        id={liveId}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
+      <div id={liveId} role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {file ? `File accepted: ${file.name}, ${formatBytes(file.size)}` : ""}
         {validationError ? `Error: ${validationError}` : ""}
       </div>
@@ -208,9 +196,7 @@ export function DocumentDropzone({
               disabled && "opacity-50",
             )}
             style={{
-              background: isDragging
-                ? "oklch(0.60 0.18 240 / 0.08)"
-                : "var(--card)",
+              background: isDragging ? "oklch(0.60 0.18 240 / 0.08)" : "var(--card)",
               borderStyle: isDragging || file ? "solid" : "dashed",
               borderColor: isDragging
                 ? "var(--primary)"
@@ -239,10 +225,7 @@ export function DocumentDropzone({
                   >
                     {file.name}
                   </p>
-                  <p
-                    className="mt-0.5 text-xs"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
+                  <p className="mt-0.5 text-xs" style={{ color: "var(--muted-foreground)" }}>
                     {formatBytes(file.size)}
                   </p>
                 </div>
@@ -268,25 +251,17 @@ export function DocumentDropzone({
                   className="flex h-11 w-11 items-center justify-center rounded-full transition-colors duration-200"
                   style={{
                     background: isDragging ? "var(--primary)" : "var(--muted)",
-                    color: isDragging
-                      ? "var(--primary-foreground)"
-                      : "var(--muted-foreground)",
+                    color: isDragging ? "var(--primary-foreground)" : "var(--muted-foreground)",
                   }}
                   aria-hidden="true"
                 >
                   <Upload size={20} strokeWidth={1.75} />
                 </div>
                 <div>
-                  <p
-                    className="text-sm font-medium"
-                    style={{ color: "var(--foreground)" }}
-                  >
+                  <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
                     {isDragging ? "Drop it here" : "Drop your document here"}
                   </p>
-                  <p
-                    className="mt-1 text-xs"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
+                  <p className="mt-1 text-xs" style={{ color: "var(--muted-foreground)" }}>
                     or click to browse · PDF, DOCX, TXT · max 5 MB
                   </p>
                 </div>
@@ -312,9 +287,7 @@ export function DocumentDropzone({
           <Textarea
             id={textareaId}
             value={text}
-            onChange={(e) =>
-              onTextChange(e.target.value.slice(0, MAX_PASTE_CHARS))
-            }
+            onChange={(e) => onTextChange(e.target.value.slice(0, MAX_PASTE_CHARS))}
             disabled={disabled}
             placeholder="Paste the full text of your document here…"
             rows={10}
@@ -335,9 +308,7 @@ export function DocumentDropzone({
               aria-live="polite"
               className="text-xs tabular-nums"
               style={{
-                color: pasteNearLimit
-                  ? "var(--severity-medium)"
-                  : "var(--muted-foreground)",
+                color: pasteNearLimit ? "var(--severity-medium)" : "var(--muted-foreground)",
               }}
             >
               {text.length.toLocaleString()} / {MAX_PASTE_CHARS.toLocaleString()} chars

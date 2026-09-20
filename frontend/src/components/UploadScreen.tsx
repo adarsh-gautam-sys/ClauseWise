@@ -38,11 +38,15 @@ interface UploadScreenProps {
   submitLabel?: string;
 }
 
-export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze Document" }: UploadScreenProps) {
-
-  const [mode, setMode]       = useState<"file" | "paste">("file");
-  const [file, setFile]       = useState<File | null>(null);
-  const [text, setText]       = useState("");
+export function UploadScreen({
+  persona,
+  onSuccess,
+  label,
+  submitLabel = "Analyze Document",
+}: UploadScreenProps) {
+  const [mode, setMode] = useState<"file" | "paste">("file");
+  const [file, setFile] = useState<File | null>(null);
+  const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
@@ -86,10 +90,11 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
       }
 
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-        const msg = typeof body["error"] === "string"
-          ? body["error"]
-          : `Upload failed (HTTP ${response.status}). Please try again.`;
+        const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+        const msg =
+          typeof body["error"] === "string"
+            ? body["error"]
+            : `Upload failed (HTTP ${response.status}). Please try again.`;
         throw new Error(msg);
       }
 
@@ -97,9 +102,7 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
       onSuccess(result);
     } catch (err) {
       setUploadError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.",
+        err instanceof Error ? err.message : "Something went wrong. Please try again.",
       );
     } finally {
       setUploading(false);
@@ -120,17 +123,13 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
           className="mx-auto mt-2.5 max-w-sm text-sm leading-relaxed"
           style={{ color: "var(--muted-foreground)" }}
         >
-          Upload any contract and get plain-language explanations, risk-flagged clauses,
-          and a lawyer-ready question list.
+          Upload any contract and get plain-language explanations, risk-flagged clauses, and a
+          lawyer-ready question list.
         </p>
       </div>
 
       {/* Upload card */}
-      <form
-        onSubmit={handleSubmit}
-        aria-label="Document upload"
-        noValidate
-      >
+      <form onSubmit={handleSubmit} aria-label="Document upload" noValidate>
         <div
           className="rounded-2xl border p-6"
           style={{
@@ -157,9 +156,8 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
                 aria-hidden="true"
               />
               <span>
-                Select <strong style={{ color: "var(--foreground)" }}>who you are</strong> in
-                the dropdown above before uploading — it determines which clauses are
-                surfaced first.
+                Select <strong style={{ color: "var(--foreground)" }}>who you are</strong> in the
+                dropdown above before uploading — it determines which clauses are surfaced first.
               </span>
             </div>
           )}
@@ -177,11 +175,7 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
 
           {/* Upload error */}
           {uploadError && (
-            <Alert
-              variant="destructive"
-              className="mt-4"
-              role="alert"
-            >
+            <Alert variant="destructive" className="mt-4" role="alert">
               <AlertDescription>{uploadError}</AlertDescription>
             </Alert>
           )}
@@ -203,13 +197,7 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
                 : {}
             }
             aria-busy={uploading}
-            aria-describedby={
-              missingPersona
-                ? "cta-hint"
-                : !hasDocument
-                  ? "cta-hint"
-                  : undefined
-            }
+            aria-describedby={missingPersona ? "cta-hint" : !hasDocument ? "cta-hint" : undefined}
           >
             {uploading ? (
               <>

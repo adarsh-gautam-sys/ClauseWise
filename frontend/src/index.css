@@ -33,33 +33,33 @@
   --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
 
   /* Core semantic tokens */
-  --color-background:           var(--background);
-  --color-foreground:           var(--foreground);
-  --color-card:                 var(--card);
-  --color-card-foreground:      var(--card-foreground);
-  --color-popover:              var(--popover);
-  --color-popover-foreground:   var(--popover-foreground);
-  --color-primary:              var(--primary);
-  --color-primary-foreground:   var(--primary-foreground);
-  --color-secondary:            var(--secondary);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted:                var(--muted);
-  --color-muted-foreground:     var(--muted-foreground);
-  --color-accent:               var(--accent);
-  --color-accent-foreground:    var(--accent-foreground);
-  --color-destructive:          var(--destructive);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border:               var(--border);
-  --color-input:                var(--input);
-  --color-ring:                 var(--ring);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
   /* Severity — always paired with a text label, never color alone */
-  --color-severity-high:        var(--severity-high);
-  --color-severity-high-bg:     var(--severity-high-bg);
-  --color-severity-medium:      var(--severity-medium);
-  --color-severity-medium-bg:   var(--severity-medium-bg);
-  --color-severity-low:         var(--severity-low);
-  --color-severity-low-bg:      var(--severity-low-bg);
+  --color-severity-high: var(--severity-high);
+  --color-severity-high-bg: var(--severity-high-bg);
+  --color-severity-medium: var(--severity-medium);
+  --color-severity-medium-bg: var(--severity-medium-bg);
+  --color-severity-low: var(--severity-low);
+  --color-severity-low-bg: var(--severity-low-bg);
 
   /* Radii (used by shadcn) */
   --radius-sm: calc(var(--radius) - 4px);
@@ -84,49 +84,49 @@
 :root,
 .dark {
   /* ── Ground & text ─────────────────────────────────────────────────────── */
-  --background:    oklch(0.145 0.008 222);   /* near-black cool slate */
-  --foreground:    oklch(0.93  0.006 222);   /* warm white */
+  --background: oklch(0.145 0.008 222); /* near-black cool slate */
+  --foreground: oklch(0.93 0.006 222); /* warm white */
 
   /* ── Card / popover surfaces ───────────────────────────────────────────── */
-  --card:           oklch(0.19  0.010 222);   /* lifted from ground */
+  --card: oklch(0.19 0.01 222); /* lifted from ground */
   --card-foreground: oklch(0.93 0.006 222);
-  --popover:        oklch(0.19  0.010 222);
+  --popover: oklch(0.19 0.01 222);
   --popover-foreground: oklch(0.93 0.006 222);
 
   /* ── Secondary / muted surfaces ────────────────────────────────────────── */
-  --secondary:           oklch(0.24 0.008 222);
+  --secondary: oklch(0.24 0.008 222);
   --secondary-foreground: oklch(0.93 0.006 222);
-  --muted:               oklch(0.22 0.008 222);
-  --muted-foreground:    oklch(0.63 0.010 222); /* raised from 0.58 → WCAG AA on card surface */
+  --muted: oklch(0.22 0.008 222);
+  --muted-foreground: oklch(0.63 0.01 222); /* raised from 0.58 → WCAG AA on card surface */
 
   /* ── Accent (hover tint for interactive elements, NOT severity) ─────────── */
-  --accent:           oklch(0.60 0.18 240 / 0.12);   /* translucent primary */
+  --accent: oklch(0.6 0.18 240 / 0.12); /* translucent primary */
   --accent-foreground: oklch(0.93 0.006 222);
 
   /* ── Primary action — calm WCAG-AA blue ─────────────────────────────────── */
-  --primary:           oklch(0.64 0.18 240); /* raised 0.60→0.64: primary-foreground passes AA */
-  --primary-foreground: oklch(0.10 0.008 222); /* dark on blue: 7:1 contrast ratio ✔ */
+  --primary: oklch(0.64 0.18 240); /* raised 0.60→0.64: primary-foreground passes AA */
+  --primary-foreground: oklch(0.1 0.008 222); /* dark on blue: 7:1 contrast ratio ✔ */
 
   /* ── Destructive ──────────────────────────────────────────────────────── */
-  --destructive:           oklch(0.55 0.20 22);
+  --destructive: oklch(0.55 0.2 22);
   --destructive-foreground: oklch(0.98 0.004 222);
 
   /* ── Borders, inputs, focus ring ────────────────────────────────────────── */
-  --border: oklch(0.28 0.010 222);
-  --input:  oklch(0.22 0.010 222);
-  --ring:   oklch(0.60 0.18 240);        /* focus ring = primary */
+  --border: oklch(0.28 0.01 222);
+  --input: oklch(0.22 0.01 222);
+  --ring: oklch(0.6 0.18 240); /* focus ring = primary */
 
   /* ── Border radius ──────────────────────────────────────────────────────── */
-  --radius: 0.5rem;                       /* base radius for shadcn components */
+  --radius: 0.5rem; /* base radius for shadcn components */
 
   /* ── Severity tokens (color + MUST be paired with text label in markup) ─── */
   /* severity-high: red-slate — distinct from primary blue action color */
-  --severity-high:    oklch(0.68 0.18 15);             /* raised 0.60→0.68: passes AA on high-bg */
-  --severity-high-bg: oklch(0.68 0.18 15  / 0.15);
-  --severity-medium:    oklch(0.84 0.14 65);           /* raised 0.78→0.84: passes AA on medium-bg */
-  --severity-medium-bg: oklch(0.84 0.14 65  / 0.15);
-  --severity-low:    oklch(0.70 0.14 160);             /* raised 0.64→0.70: passes AA on low-bg */
-  --severity-low-bg: oklch(0.70 0.14 160  / 0.15);
+  --severity-high: oklch(0.68 0.18 15); /* raised 0.60→0.68: passes AA on high-bg */
+  --severity-high-bg: oklch(0.68 0.18 15 / 0.15);
+  --severity-medium: oklch(0.84 0.14 65); /* raised 0.78→0.84: passes AA on medium-bg */
+  --severity-medium-bg: oklch(0.84 0.14 65 / 0.15);
+  --severity-low: oklch(0.7 0.14 160); /* raised 0.64→0.70: passes AA on low-bg */
+  --severity-low-bg: oklch(0.7 0.14 160 / 0.15);
 }
 
 /* ── Global base ─────────────────────────────────────────────────────────── */
@@ -145,7 +145,9 @@
 
   /* Respect reduced-motion preference: suppress jarring rotations/shifts, preserve loading feedback */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
@@ -160,8 +162,15 @@
   }
 
   @keyframes subtle-pulse {
-    0%, 100% { opacity: 1; transform: none; }
-    50% { opacity: 0.35; transform: none; }
+    0%,
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+    50% {
+      opacity: 0.35;
+      transform: none;
+    }
   }
 
   body {
@@ -178,12 +187,20 @@
 
   /* Optimize touch responsiveness on touchscreens */
   @media (pointer: coarse) {
-    button, [role="button"], a, input, select, textarea {
+    button,
+    [role="button"],
+    a,
+    input,
+    select,
+    textarea {
       touch-action: manipulation;
     }
   }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     line-height: 1.25;
     letter-spacing: -0.025em;
     font-weight: 600;
@@ -193,20 +210,31 @@
 
   /* Text selection */
   ::selection {
-    background-color: oklch(0.60 0.18 240 / 0.35);
+    background-color: oklch(0.6 0.18 240 / 0.35);
     color: var(--foreground);
   }
 
   /* Caret */
-  input, textarea {
+  input,
+  textarea {
     caret-color: var(--primary);
   }
 
   /* Custom scrollbar */
-  ::-webkit-scrollbar          { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track    { background: var(--background); }
-  ::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
 
   /* Focus ring (shadcn uses ring utilities; base anchor kept for non-shadcn) */
   :focus-visible {
@@ -249,8 +277,12 @@
   }
 
   /* Link underline offset */
-  a { text-underline-offset: 3px; }
+  a {
+    text-underline-offset: 3px;
+  }
 
   /* Ensure border utility applies border-color: var(--border) by default */
-  * { @apply border-border; }
+  * {
+    @apply border-border;
+  }
 }

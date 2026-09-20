@@ -24,7 +24,6 @@
       "@/*": ["./src/*"]
     },
 
-
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,

@@ -22,22 +22,8 @@
  * ARIA live region (role="log") announces every new AI answer.
  */
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  useId,
-  useCallback,
-} from "react";
-import {
-  Send,
-  Loader2,
-  BookOpen,
-  AlertTriangle,
-  PlusCircle,
-  Check,
-  RotateCcw,
-} from "lucide-react";
+import { useState, useRef, useEffect, useId, useCallback } from "react";
+import { Send, Loader2, BookOpen, AlertTriangle, PlusCircle, Check, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -55,10 +41,7 @@ interface ResolvedCitation {
   clauseId: string;
 }
 
-function resolveCitation(
-  rawSec: string,
-  clauses: Clause[],
-): ResolvedCitation | null {
+function resolveCitation(rawSec: string, clauses: Clause[]): ResolvedCitation | null {
   const needle = rawSec.trim().toLowerCase();
   const match = clauses.find(
     (c) =>
@@ -115,10 +98,7 @@ function ErrorBubble({ errorText, onRetry, isRetrying }: ErrorBubbleProps) {
           aria-hidden="true"
         />
         <div className="flex flex-1 flex-wrap items-center gap-x-3 gap-y-1">
-          <span
-            className="text-xs leading-relaxed"
-            style={{ color: "var(--foreground)" }}
-          >
+          <span className="text-xs leading-relaxed" style={{ color: "var(--foreground)" }}>
             {errorText}
           </span>
           <Button
@@ -240,12 +220,9 @@ function AssistantBubble({
                 aria-hidden="true"
               />
               <div className="flex-1">
-                <p
-                  className="text-xs leading-relaxed"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  This question could not be answered from the document. Add it
-                  to your lawyer questions list for your export.
+                <p className="text-xs leading-relaxed" style={{ color: "var(--foreground)" }}>
+                  This question could not be answered from the document. Add it to your lawyer
+                  questions list for your export.
                 </p>
                 <Button
                   type="button"
@@ -256,9 +233,7 @@ function AssistantBubble({
                   className="mt-1.5 min-h-[44px] sm:min-h-0 h-auto px-2 py-1.5 sm:px-0 sm:py-0.5 text-xs inline-flex items-center"
                   style={{ color: added ? "var(--severity-low)" : "var(--primary)" }}
                   aria-label={
-                    added
-                      ? "Added to lawyer questions"
-                      : "Add this question to lawyer questions"
+                    added ? "Added to lawyer questions" : "Add this question to lawyer questions"
                   }
                 >
                   {added ? (
@@ -335,10 +310,7 @@ export function ChatPanel({
         setMessages((prev) => prev.filter((m) => m.id !== replaceErrorId));
       } else {
         // New question — append user bubble
-        setMessages((prev) => [
-          ...prev,
-          { id: crypto.randomUUID(), role: "user", question },
-        ]);
+        setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "user", question }]);
         setInput("");
       }
 
@@ -366,10 +338,7 @@ export function ChatPanel({
           id: crypto.randomUUID(),
           role: "error",
           retryQuestion: question,
-          errorText:
-            err instanceof Error
-              ? err.message
-              : "Something went wrong. Please try again.",
+          errorText: err instanceof Error ? err.message : "Something went wrong. Please try again.",
         };
         setMessages((prev) => [...prev, errorMsg]);
       } finally {
@@ -416,23 +385,16 @@ export function ChatPanel({
         <div className="flex flex-col gap-4 p-1 pb-4">
           {messages.length === 0 && (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <BookOpen
-                size={28}
-                style={{ color: "var(--muted-foreground)" }}
-                aria-hidden="true"
-              />
-              <p
-                className="text-sm font-medium"
-                style={{ color: "var(--foreground)" }}
-              >
+              <BookOpen size={28} style={{ color: "var(--muted-foreground)" }} aria-hidden="true" />
+              <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
                 Ask anything about your document
               </p>
               <p
                 className="max-w-xs text-xs leading-relaxed"
                 style={{ color: "var(--muted-foreground)" }}
               >
-                Answers are grounded in the document text only and include clause
-                citations. Not legal advice.
+                Answers are grounded in the document text only and include clause citations. Not
+                legal advice.
               </p>
             </div>
           )}
@@ -447,9 +409,7 @@ export function ChatPanel({
                   key={msg.id}
                   errorText={msg.errorText ?? "Request failed."}
                   isRetrying={loading}
-                  onRetry={() =>
-                    handleRetry(msg.id, msg.retryQuestion ?? "")
-                  }
+                  onRetry={() => handleRetry(msg.id, msg.retryQuestion ?? "")}
                 />
               );
             }
@@ -460,9 +420,7 @@ export function ChatPanel({
                 clauses={clauses}
                 onScrollToClause={onScrollToClause}
                 onAddOutOfScope={onAddOutOfScope}
-                alreadyAdded={
-                  msg.question ? outOfScopeAdded.has(msg.question) : false
-                }
+                alreadyAdded={msg.question ? outOfScopeAdded.has(msg.question) : false}
               />
             );
           })}
@@ -503,9 +461,7 @@ export function ChatPanel({
             <Input
               id={inputId}
               value={input}
-              onChange={(e) =>
-                setInput(e.target.value.slice(0, MAX_Q_CHARS))
-              }
+              onChange={(e) => setInput(e.target.value.slice(0, MAX_Q_CHARS))}
               onKeyDown={handleKeyDown}
               placeholder="Ask about a clause, deadline, or term…"
               disabled={loading}
@@ -546,10 +502,7 @@ export function ChatPanel({
         </div>
       </div>
 
-      <p
-        className="mt-2 text-center text-[10px]"
-        style={{ color: "var(--muted-foreground)" }}
-      >
+      <p className="mt-2 text-center text-[10px]" style={{ color: "var(--muted-foreground)" }}>
         Answers come from your document only. Not legal advice.
       </p>
     </div>

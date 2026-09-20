@@ -27,22 +27,17 @@ import type { ComparisonEntry, FavorsValue } from "@/types";
 
 // ── Favors indicator ──────────────────────────────────────────────────────────
 
-const FAVORS_META: Record<
-  FavorsValue,
-  { label: string; Icon: React.ElementType; color: string }
-> = {
-  doc_a: { label: "Favors A", Icon: ArrowLeft,  color: "var(--severity-low)" },
-  doc_b: { label: "Favors B", Icon: ArrowRight, color: "var(--severity-medium)" },
-  neutral: { label: "Neutral",  Icon: Minus,      color: "var(--muted-foreground)" },
-};
+const FAVORS_META: Record<FavorsValue, { label: string; Icon: React.ElementType; color: string }> =
+  {
+    doc_a: { label: "Favors A", Icon: ArrowLeft, color: "var(--severity-low)" },
+    doc_b: { label: "Favors B", Icon: ArrowRight, color: "var(--severity-medium)" },
+    neutral: { label: "Neutral", Icon: Minus, color: "var(--muted-foreground)" },
+  };
 
 function FavorsCell({ favors }: { favors: FavorsValue }) {
   const { label, Icon, color } = FAVORS_META[favors];
   return (
-    <span
-      className="inline-flex items-center gap-1 text-xs font-medium"
-      style={{ color }}
-    >
+    <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color }}>
       <Icon size={12} aria-hidden="true" />
       {label}
     </span>
@@ -58,13 +53,21 @@ interface CompareTableProps {
 }
 
 export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProps) {
-  const aligned = entries.filter((e) => e.match_type === "aligned") as Extract<ComparisonEntry, { match_type: "aligned" }>[];
-  const onlyA   = entries.filter((e) => e.match_type === "only_in_a") as Extract<ComparisonEntry, { match_type: "only_in_a" | "only_in_b" }>[];
-  const onlyB   = entries.filter((e) => e.match_type === "only_in_b") as Extract<ComparisonEntry, { match_type: "only_in_a" | "only_in_b" }>[];
+  const aligned = entries.filter((e) => e.match_type === "aligned") as Extract<
+    ComparisonEntry,
+    { match_type: "aligned" }
+  >[];
+  const onlyA = entries.filter((e) => e.match_type === "only_in_a") as Extract<
+    ComparisonEntry,
+    { match_type: "only_in_a" | "only_in_b" }
+  >[];
+  const onlyB = entries.filter((e) => e.match_type === "only_in_b") as Extract<
+    ComparisonEntry,
+    { match_type: "only_in_a" | "only_in_b" }
+  >[];
 
   return (
     <div className="flex flex-col gap-8">
-
       {/* ── Aligned clauses ─────────────────────────────────────────────── */}
       {aligned.length > 0 && (
         <section aria-labelledby="aligned-heading">
@@ -77,11 +80,11 @@ export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProp
           </h2>
 
           {/* Responsive: on mobile stack; on sm+ use table */}
-          <div className="hidden sm:block overflow-x-auto rounded-xl border" style={{ borderColor: "var(--border)" }}>
-            <table
-              className="w-full border-collapse text-sm"
-              aria-label="Clause comparison table"
-            >
+          <div
+            className="hidden sm:block overflow-x-auto rounded-xl border"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <table className="w-full border-collapse text-sm" aria-label="Clause comparison table">
               <thead>
                 <tr style={{ background: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
                   {["Topic", docALabel, docBLabel, "What changed", "Favors"].map((h) => (
@@ -153,18 +156,28 @@ export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProp
                   </span>
                   <FavorsCell favors={entry.favors} />
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                <div
+                  className="grid grid-cols-2 gap-2 text-xs"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
                   <div>
-                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>{docALabel}</p>
+                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>
+                      {docALabel}
+                    </p>
                     <p>{entry.doc_a_summary}</p>
                   </div>
                   <div>
-                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>{docBLabel}</p>
+                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>
+                      {docBLabel}
+                    </p>
                     <p>{entry.doc_b_summary}</p>
                   </div>
                 </div>
                 {entry.change_description && (
-                  <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--foreground)" }}>
+                  <p
+                    className="mt-2 text-xs leading-relaxed"
+                    style={{ color: "var(--foreground)" }}
+                  >
                     {entry.change_description}
                   </p>
                 )}

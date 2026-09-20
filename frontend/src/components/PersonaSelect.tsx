@@ -18,12 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
-export type Persona =
-  | "tenant"
-  | "employee"
-  | "freelancer"
-  | "consumer"
-  | "small_business_owner";
+export type Persona = "tenant" | "employee" | "freelancer" | "consumer" | "small_business_owner";
 
 interface PersonaOption {
   value: Persona;
@@ -32,10 +27,10 @@ interface PersonaOption {
 }
 
 const PERSONAS: PersonaOption[] = [
-  { value: "tenant",             label: "Tenant",         descriptor: "Lease / Rental" },
-  { value: "employee",           label: "Employee",       descriptor: "Offer / Contract" },
-  { value: "freelancer",         label: "Freelancer",     descriptor: "Service / NDA" },
-  { value: "consumer",           label: "Consumer",       descriptor: "ToS / Privacy" },
+  { value: "tenant", label: "Tenant", descriptor: "Lease / Rental" },
+  { value: "employee", label: "Employee", descriptor: "Offer / Contract" },
+  { value: "freelancer", label: "Freelancer", descriptor: "Service / NDA" },
+  { value: "consumer", label: "Consumer", descriptor: "ToS / Privacy" },
   { value: "small_business_owner", label: "Business Owner", descriptor: "Vendor / Loan" },
 ];
 
@@ -54,10 +49,7 @@ export function PersonaSelect({ value, onChange }: PersonaSelectProps) {
       >
         I am a
       </Label>
-      <Select
-        value={value}
-        onValueChange={(v) => onChange(v as Persona)}
-      >
+      <Select value={value} onValueChange={(v) => onChange(v as Persona)}>
         <SelectTrigger
           id="persona-select-trigger"
           className="min-h-[44px] sm:min-h-0 sm:h-8 w-[160px] text-xs sm:w-[180px]"
@@ -77,16 +69,9 @@ export function PersonaSelect({ value, onChange }: PersonaSelectProps) {
           }}
         >
           {PERSONAS.map((p) => (
-            <SelectItem
-              key={p.value}
-              value={p.value}
-              className="py-2.5 sm:py-1.5 text-xs"
-            >
+            <SelectItem key={p.value} value={p.value} className="py-2.5 sm:py-1.5 text-xs">
               <span className="font-medium">{p.label}</span>
-              <span
-                className="ml-1.5"
-                style={{ color: "var(--muted-foreground)" }}
-              >
+              <span className="ml-1.5" style={{ color: "var(--muted-foreground)" }}>
                 — {p.descriptor}
               </span>
             </SelectItem>

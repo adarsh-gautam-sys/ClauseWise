@@ -45,12 +45,12 @@ const STEP_LABELS: Record<Step, string> = {
 
 // Human-readable persona label
 const PERSONA_LABELS: Record<string, string> = {
-  tenant:           "Tenant",
-  employee:         "Employee",
-  freelancer:       "Freelancer",
-  consumer:         "Consumer",
-  small_biz:        "Small Business Owner",
-  unknown:          "",
+  tenant: "Tenant",
+  employee: "Employee",
+  freelancer: "Freelancer",
+  consumer: "Consumer",
+  small_biz: "Small Business Owner",
+  unknown: "",
 };
 
 function formatPersona(p: string): string {
@@ -97,31 +97,28 @@ export function UnderstandPage({
       if (signal.aborted) return;
 
       setStep("analyzing");
-      const result = await analyzeDocument(
-        uploadResult.documentId,
-        persona || "unknown",
-        signal,
-      );
+      const result = await analyzeDocument(uploadResult.documentId, persona || "unknown", signal);
       if (signal.aborted) return;
 
       onAnalysisComplete(result);
       setStep("done");
     } catch (err) {
       if (signal.aborted) return; // cancelled — onReset already called
-      setError(
-        err instanceof Error ? err.message : "Analysis failed. Please try again.",
-      );
+      setError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
       setStep("error");
     }
   };
 
   // Abort any in-flight analysis on unmount
   useEffect(() => {
-    return () => { abortRef.current?.abort(); };
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
     if (!analysisResult) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       void runAnalysis();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +147,11 @@ export function UnderstandPage({
                 <RotateCcw size={14} aria-hidden="true" />
                 Retry analysis
               </Button>
-              <Button variant="ghost" onClick={onReset} style={{ color: "var(--muted-foreground)" }}>
+              <Button
+                variant="ghost"
+                onClick={onReset}
+                style={{ color: "var(--muted-foreground)" }}
+              >
                 Upload different document
               </Button>
             </div>
@@ -177,10 +178,7 @@ export function UnderstandPage({
                     <div
                       className="h-px w-6"
                       style={{
-                        background:
-                          step === "analyzing"
-                            ? "var(--severity-low)"
-                            : "var(--border)",
+                        background: step === "analyzing" ? "var(--severity-low)" : "var(--border)",
                       }}
                     />
                   )}
@@ -199,10 +197,7 @@ export function UnderstandPage({
                     <span
                       className="text-xs"
                       style={{
-                        color:
-                          s === step
-                            ? "var(--foreground)"
-                            : "var(--muted-foreground)",
+                        color: s === step ? "var(--foreground)" : "var(--muted-foreground)",
                       }}
                     >
                       {s === "classifying" ? "Classify" : "Analyze"}
@@ -212,7 +207,10 @@ export function UnderstandPage({
               ))}
             </div>
 
-            <p className="max-w-xs text-center text-xs" style={{ color: "var(--muted-foreground)" }}>
+            <p
+              className="max-w-xs text-center text-xs"
+              style={{ color: "var(--muted-foreground)" }}
+            >
               This may take 10–20 seconds depending on document length.
             </p>
 
@@ -234,7 +232,10 @@ export function UnderstandPage({
 
   // ── Results ────────────────────────────────────────────────────────────────
 
-  const result = analysisResult!;
+  if (!analysisResult) {
+    return null;
+  }
+  const result = analysisResult;
   const docType = formatDocType(result.document_type);
   const personaLabel = formatPersona(persona || "unknown");
 

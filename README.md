@@ -165,6 +165,27 @@ npm run dev
 
 Open **`http://localhost:5173`** in your browser to launch ClauseWise.
 
+### 6. Production Build & Cloud Run Single-Service Deployment
+
+ClauseWise can run as a single unified service where Express serves the compiled frontend (`frontend/dist`) as static assets with client-side SPA routing fallback, while handling all `/api/*` endpoints with priority:
+
+```bash
+# Build both frontend and backend bundles
+npm run build
+
+# Start the unified production server (listens on $PORT or 8080)
+npm run start
+```
+
+To build and run the multi-stage Cloud Run Docker container:
+```bash
+# Build the production container image
+docker build -t clausewise .
+
+# Run locally on port 8080
+docker run -p 8080:8080 -e GEMINI_API_KEY=your_key_here clausewise
+```
+
 ---
 
 ## Testing & Quality Verification

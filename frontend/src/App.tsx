@@ -26,11 +26,11 @@ import type { Persona } from "@/components/PersonaSelect";
 import type { UploadResult, AnalysisResult } from "@/types";
 
 function App() {
-  const [persona, setPersona]             = useState<Persona | "">("");
-  const [activeTab, setActiveTab]         = useState<AppTab>("understand");
-  const [uploadResult, setUploadResult]   = useState<UploadResult | null>(null);
+  const [persona, setPersona] = useState<Persona | "">("");
+  const [activeTab, setActiveTab] = useState<AppTab>("understand");
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [outOfScopeQs, setOutOfScopeQs]  = useState<string[]>([]);
+  const [outOfScopeQs, setOutOfScopeQs] = useState<string[]>([]);
   const [outOfScopeAdded, setOutOfScopeAdded] = useState<Set<string>>(new Set());
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -53,9 +53,7 @@ function App() {
 
   const handleAddOutOfScope = useCallback((question: string) => {
     setOutOfScopeAdded((prev) => new Set([...prev, question]));
-    setOutOfScopeQs((prev) =>
-      prev.includes(question) ? prev : [...prev, question],
-    );
+    setOutOfScopeQs((prev) => (prev.includes(question) ? prev : [...prev, question]));
   }, []);
 
   /**
@@ -85,41 +83,44 @@ function App() {
 
   // ── Tab content ───────────────────────────────────────────────────────────
 
-  const understandContent = uploadResult === null ? (
-    <UploadScreen persona={persona} onSuccess={handleUploadSuccess} />
-  ) : (
-    <UnderstandPage
-      uploadResult={uploadResult}
-      persona={persona}
-      analysisResult={analysisResult}
-      onAnalysisComplete={handleAnalysisComplete}
-      onReset={handleReset}
-      outOfScopeQs={outOfScopeQs}
-    />
-  );
+  const understandContent =
+    uploadResult === null ? (
+      <UploadScreen persona={persona} onSuccess={handleUploadSuccess} />
+    ) : (
+      <UnderstandPage
+        uploadResult={uploadResult}
+        persona={persona}
+        analysisResult={analysisResult}
+        onAnalysisComplete={handleAnalysisComplete}
+        onReset={handleReset}
+        outOfScopeQs={outOfScopeQs}
+      />
+    );
 
-  const compareContent = analysisResult === null ? (
-    <PlaceholderScreen
-      title="Analyze a document first"
-      description="Upload and analyze a document on the Understand tab, then come back here to compare it with a second document."
-    />
-  ) : (
-    <ComparePage docAResult={analysisResult} persona={persona} />
-  );
+  const compareContent =
+    analysisResult === null ? (
+      <PlaceholderScreen
+        title="Analyze a document first"
+        description="Upload and analyze a document on the Understand tab, then come back here to compare it with a second document."
+      />
+    ) : (
+      <ComparePage docAResult={analysisResult} persona={persona} />
+    );
 
-  const askContent = analysisResult === null ? (
-    <PlaceholderScreen
-      title="Analyze a document first"
-      description="Upload and analyze a document on the Understand tab, then come back here to ask questions about it."
-    />
-  ) : (
-    <QAPage
-      analysisResult={analysisResult}
-      onScrollToClause={scrollToClause}
-      onAddOutOfScope={handleAddOutOfScope}
-      outOfScopeAdded={outOfScopeAdded}
-    />
-  );
+  const askContent =
+    analysisResult === null ? (
+      <PlaceholderScreen
+        title="Analyze a document first"
+        description="Upload and analyze a document on the Understand tab, then come back here to ask questions about it."
+      />
+    ) : (
+      <QAPage
+        analysisResult={analysisResult}
+        onScrollToClause={scrollToClause}
+        onAddOutOfScope={handleAddOutOfScope}
+        outOfScopeAdded={outOfScopeAdded}
+      />
+    );
 
   return (
     <TooltipProvider delayDuration={300}>

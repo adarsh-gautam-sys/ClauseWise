@@ -26,10 +26,7 @@ import AxeBuilder from "@axe-core/playwright";
  * Run axe on the current page and assert zero critical/serious violations.
  * Logs any moderate/minor violations to the console for awareness.
  */
-async function assertNoA11yViolations(
-  page: import("@playwright/test").Page,
-  label: string,
-) {
+async function assertNoA11yViolations(page: import("@playwright/test").Page, label: string) {
   const results = await new AxeBuilder({ page })
     // Standard WCAG 2.1 AA + best-practice rules
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
@@ -40,9 +37,7 @@ async function assertNoA11yViolations(
   const critical = results.violations.filter(
     (v) => v.impact === "critical" || v.impact === "serious",
   );
-  const minor = results.violations.filter(
-    (v) => v.impact === "moderate" || v.impact === "minor",
-  );
+  const minor = results.violations.filter((v) => v.impact === "moderate" || v.impact === "minor");
 
   if (minor.length > 0) {
     console.log(`\n[a11y] Moderate/minor on "${label}" (non-blocking):`);
@@ -59,10 +54,7 @@ async function assertNoA11yViolations(
     const details = critical
       .map((v) => {
         const nodes = v.nodes
-          .map(
-            (n) =>
-              `    target: ${n.target}\n    html: ${n.html.slice(0, 200)}`,
-          )
+          .map((n) => `    target: ${n.target}\n    html: ${n.html.slice(0, 200)}`)
           .join("\n");
         return `• [${v.impact}] Rule: ${v.id}\n  ${v.description}\n  Help: ${v.helpUrl}\n${nodes}`;
       })
@@ -104,20 +96,14 @@ test.describe("Understand screen", () => {
     });
     await modeToggle.click();
     await page.waitForSelector("textarea", { timeout: 3_000 });
-    await assertNoA11yViolations(
-      page,
-      "Understand / UploadScreen / paste mode",
-    );
+    await assertNoA11yViolations(page, "Understand / UploadScreen / paste mode");
   });
 
   test("persona reminder shown when no persona selected", async ({ page }) => {
     // By default no persona is selected — the reminder should be visible
     const hint = page.getByText(/select who you are/i);
     await expect(hint).toBeVisible();
-    await assertNoA11yViolations(
-      page,
-      "Understand / UploadScreen / persona reminder",
-    );
+    await assertNoA11yViolations(page, "Understand / UploadScreen / persona reminder");
   });
 });
 
@@ -126,10 +112,7 @@ test.describe("Compare screen", () => {
     // Click Compare tab
     await page.getByRole("tab", { name: "Compare" }).click();
     await page.waitForSelector("h2", { timeout: 3_000 });
-    await assertNoA11yViolations(
-      page,
-      "Compare / PlaceholderScreen",
-    );
+    await assertNoA11yViolations(page, "Compare / PlaceholderScreen");
   });
 });
 
@@ -142,9 +125,7 @@ test.describe("Q&A screen", () => {
 });
 
 test.describe("Navigation & skip link", () => {
-  test("skip link is accessible via keyboard and targets #main-content", async ({
-    page,
-  }) => {
+  test("skip link is accessible via keyboard and targets #main-content", async ({ page }) => {
     // Tab once — the skip link should be the first focusable element
     await page.keyboard.press("Tab");
     const focused = await page.evaluate(() => document.activeElement?.textContent?.trim());
@@ -159,9 +140,7 @@ test.describe("Navigation & skip link", () => {
     expect(afterTarget).toBe("main-content");
   });
 
-  test("tab order reaches all interactive elements in Understand tab", async ({
-    page,
-  }) => {
+  test("tab order reaches all interactive elements in Understand tab", async ({ page }) => {
     // Verify we can tab through: skip-link → persona select → tabs → dropzone → mode-toggle → submit
     const interactiveElements: string[] = [];
     // Tab up to 20 times and collect labels/roles
@@ -193,9 +172,7 @@ test.describe("Keyboard — accordion", () => {
    *
    * Strategy: intercept the API routes and return fixture data.
    */
-  test("accordion triggers are keyboard-navigable (mocked analysis)", async ({
-    page,
-  }) => {
+  test("accordion triggers are keyboard-navigable (mocked analysis)", async ({ page }) => {
     // Mock POST /api/documents → documentId
     await page.route("**/api/documents", (route) => {
       void route.fulfill({
@@ -222,8 +199,7 @@ test.describe("Keyboard — accordion", () => {
         body: JSON.stringify({
           documentId: "test-doc-001",
           document_type: "employment_contract",
-          summary:
-            "A standard employment contract covering compensation, duties, and termination.",
+          summary: "A standard employment contract covering compensation, duties, and termination.",
           clauses: [
             {
               clause_id: "clause-1",
@@ -255,13 +231,15 @@ test.describe("Keyboard — accordion", () => {
     });
 
     // Select a persona (required to enable upload)
-    await page.selectOption("#persona-select-trigger", {
-      label: /tenant/i,
-    }).catch(async () => {
-      // Radix Select doesn't use native select — click the trigger then pick
-      await page.getByRole("combobox", { name: /select your persona/i }).click();
-      await page.getByRole("option", { name: /tenant/i }).click();
-    });
+    await page
+      .selectOption("#persona-select-trigger", {
+        label: /tenant/i,
+      })
+      .catch(async () => {
+        // Radix Select doesn't use native select — click the trigger then pick
+        await page.getByRole("combobox", { name: /select your persona/i }).click();
+        await page.getByRole("option", { name: /tenant/i }).click();
+      });
 
     // Upload a dummy file via the dropzone
     const dropzoneInput = page.locator('input[type="file"]');

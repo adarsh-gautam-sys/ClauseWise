@@ -11,7 +11,8 @@ import { logger } from "./lib/logger.js";
 // Side-effect import: validates GEMINI_API_KEY at startup and exits if missing.
 import "./services/geminiClient.js";
 
-const PORT = Number(process.env["PORT"] ?? 3001);
+// Listen on process.env.PORT (injected by Cloud Run), falling back to 8080 for local runs.
+const PORT = Number(process.env["PORT"] ?? 8080);
 
 app.listen(PORT, () => {
   logger.info(`ClauseWise backend listening on port ${PORT.toString()}`);

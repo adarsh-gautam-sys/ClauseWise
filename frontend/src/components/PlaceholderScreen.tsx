@@ -17,9 +17,7 @@ interface PlaceholderScreenProps {
 
 export function PlaceholderScreen({ title, description }: PlaceholderScreenProps) {
   return (
-    <div
-      className="flex flex-1 flex-col items-center justify-center py-24 text-center"
-    >
+    <div className="flex flex-1 flex-col items-center justify-center py-24 text-center">
       <div
         className="mx-auto flex max-w-sm flex-col items-center gap-4 rounded-2xl border px-8 py-10"
         style={{
@@ -37,10 +35,7 @@ export function PlaceholderScreen({ title, description }: PlaceholderScreenProps
         </div>
 
         <div>
-          <h2
-            className="text-base font-semibold"
-            style={{ color: "var(--foreground)" }}
-          >
+          <h2 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
             {title}
           </h2>
           <p

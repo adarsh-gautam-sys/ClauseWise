@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     setupFiles: ["./tests/setup.ts"],
     passWithNoTests: true,
+    exclude: ["**/node_modules/**", "**/dist/**"],
   },
 });

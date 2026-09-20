@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets and environment files (critical security boundary)
+.env
+.env.*
+*.env
+.env.local
+
+# Git and version control
+.git/
+.gitignore
+
+# Tests, coverage, and reports (not needed in production container)
+tests/
+**/tests/
+playwright-report/
+test-results/
+coverage/
+
+# Local build artifacts and caches (fresh build performed inside container)
+dist/
+**/dist/
+build/
+**/build/
+.eslintcache
+*.tsbuildinfo
+graphify-out/
+.impeccable/
+
+# IDE, editor, and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

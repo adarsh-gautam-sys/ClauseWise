@@ -41,13 +41,16 @@ export function QAPage({
           >
             Ask about your document
           </h1>
-          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+          <p
+            className="mt-0.5 text-xs leading-relaxed"
+            style={{ color: "var(--muted-foreground)" }}
+          >
             Questions are answered from{" "}
             <strong style={{ color: "var(--foreground)" }}>
               {analysisResult.document_type.replace(/_/g, " ")}
             </strong>{" "}
-            only. Cited clause references link back to the Understand tab.
-            Out-of-scope questions can be added to your lawyer export.
+            only. Cited clause references link back to the Understand tab. Out-of-scope questions
+            can be added to your lawyer export.
           </p>
         </div>
       </div>
@@ -67,10 +70,13 @@ export function QAPage({
       </div>
 
       {/* ── Disclaimer ───────────────────────────────────────────────── */}
-      <p className="text-center text-[11px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-        Answers are grounded in your document text only. ClauseWise never
-        predicts legal outcomes or gives a definitive legal opinion.
-        Always consult a qualified lawyer before acting on any analysis.
+      <p
+        className="text-center text-[11px] leading-relaxed"
+        style={{ color: "var(--muted-foreground)" }}
+      >
+        Answers are grounded in your document text only. ClauseWise never predicts legal outcomes or
+        gives a definitive legal opinion. Always consult a qualified lawyer before acting on any
+        analysis.
       </p>
     </div>
   );

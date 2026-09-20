@@ -17,12 +17,14 @@ const MOCK_DOC_A_ANALYSIS = {
   documentId: MOCK_DOC_A_ID,
   document_type: "lease",
   persona: "tenant",
-  summary: "This is a residential lease agreement governing the tenancy terms and deposit conditions.",
+  summary:
+    "This is a residential lease agreement governing the tenancy terms and deposit conditions.",
   clauses: [
     {
       clause_id: "CLAUSE_1",
       section_reference: "Section 3 — Security Deposit",
-      plain_language_summary: "Tenant must pay two months rent as security deposit before moving in.",
+      plain_language_summary:
+        "Tenant must pay two months rent as security deposit before moving in.",
       tag: "obligation",
       severity: "medium",
       why_it_matters: "Held until move-out for potential damage deductions.",
@@ -88,9 +90,7 @@ const MOCK_EXPORT_RESULT = {
     "Review the security deposit refund timeline before signing.",
     "Clarify written notice requirements for landlord entry.",
   ],
-  lawyer_questions: [
-    "Is the unannounced entry clause enforceable under local tenancy law?",
-  ],
+  lawyer_questions: ["Is the unannounced entry clause enforceable under local tenancy law?"],
   markdown:
     "# ClauseWise Export — Lease\n\n## Action Checklist\n- [ ] Review the security deposit refund timeline before signing.\n\n## Questions for Your Lawyer\n1. Is the unannounced entry clause enforceable under local tenancy law?",
 };
@@ -171,7 +171,8 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await page.route(`**/api/documents/${MOCK_DOC_A_ID}/ask`, async (route) => {
       const body = JSON.parse(route.request().postData() || "{}") as { question?: string };
       const q = body.question || "";
-      const isOutOfScope = q.toLowerCase().includes("capital of france") || q.toLowerCase().includes("weather");
+      const isOutOfScope =
+        q.toLowerCase().includes("capital of france") || q.toLowerCase().includes("weather");
 
       if (isOutOfScope) {
         await route.fulfill({
@@ -208,7 +209,9 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await page.getByRole("option", { name: "Tenant" }).click();
 
     // 2. Switch to paste text mode
-    const pasteToggle = page.getByRole("button", { name: /switch to paste text mode|paste text instead/i });
+    const pasteToggle = page.getByRole("button", {
+      name: /switch to paste text mode|paste text instead/i,
+    });
     await pasteToggle.click();
 
     // 3. Paste document text
@@ -242,7 +245,9 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await expect(copyBtn).toBeVisible();
   });
 
-  test("2. Full Compare journey: Document A analyzed -> Add Document B -> View Comparisons", async ({ page }) => {
+  test("2. Full Compare journey: Document A analyzed -> Add Document B -> View Comparisons", async ({
+    page,
+  }) => {
     await page.goto("/");
 
     // Setup Document A
@@ -250,8 +255,12 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await personaTrigger.click();
     await page.getByRole("option", { name: "Tenant" }).click();
 
-    await page.getByRole("button", { name: /switch to paste text mode|paste text instead/i }).click();
-    await page.getByRole("textbox", { name: "Paste document text" }).fill("Lease Agreement Document A text.");
+    await page
+      .getByRole("button", { name: /switch to paste text mode|paste text instead/i })
+      .click();
+    await page
+      .getByRole("textbox", { name: "Paste document text" })
+      .fill("Lease Agreement Document A text.");
     await page.getByRole("button", { name: /analyze document/i }).click();
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Lease");
@@ -261,15 +270,21 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await compareTab.click();
 
     // Document B upload screen appears
-    const pasteBBtn = page.getByRole("button", { name: /switch to paste text mode|paste text instead/i });
+    const pasteBBtn = page.getByRole("button", {
+      name: /switch to paste text mode|paste text instead/i,
+    });
     await pasteBBtn.click();
-    await page.getByRole("textbox", { name: "Paste document text" }).fill("Revised Document B text.");
+    await page
+      .getByRole("textbox", { name: "Paste document text" })
+      .fill("Revised Document B text.");
 
     const addDocBBtn = page.getByRole("button", { name: /analyze document b/i });
     await addDocBBtn.click();
 
     // Click Compare Documents
-    const compareBtn = page.getByRole("button", { name: /compare the two documents|compare documents/i });
+    const compareBtn = page.getByRole("button", {
+      name: /compare the two documents|compare documents/i,
+    });
     await expect(compareBtn).toBeVisible();
     await compareBtn.click();
 
@@ -278,7 +293,9 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await expect(page.getByText("Document B reduces the security deposit").first()).toBeVisible();
   });
 
-  test("3. Q&A out-of-scope refusal path: Ask off-topic question -> verify refusal -> add to lawyer questions", async ({ page }) => {
+  test("3. Q&A out-of-scope refusal path: Ask off-topic question -> verify refusal -> add to lawyer questions", async ({
+    page,
+  }) => {
     await page.goto("/");
 
     // Setup Document A
@@ -286,8 +303,12 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await personaTrigger.click();
     await page.getByRole("option", { name: "Tenant" }).click();
 
-    await page.getByRole("button", { name: /switch to paste text mode|paste text instead/i }).click();
-    await page.getByRole("textbox", { name: "Paste document text" }).fill("Lease Agreement Document A text.");
+    await page
+      .getByRole("button", { name: /switch to paste text mode|paste text instead/i })
+      .click();
+    await page
+      .getByRole("textbox", { name: "Paste document text" })
+      .fill("Lease Agreement Document A text.");
     await page.getByRole("button", { name: /analyze document/i }).click();
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Lease");
@@ -297,17 +318,23 @@ test.describe("ClauseWise End-to-End User Journeys", () => {
     await qaTab.click();
 
     // Fill in an out-of-scope question
-    const questionInput = page.getByRole("textbox", { name: /ask a question about your document/i });
+    const questionInput = page.getByRole("textbox", {
+      name: /ask a question about your document/i,
+    });
     await questionInput.fill("What is the capital of France?");
     await page.getByRole("button", { name: /send question/i }).click();
 
     // Verify out-of-scope refusal notice appears
     const refusalNotice = page.getByRole("note", { name: /question outside document scope/i });
     await expect(refusalNotice).toBeVisible();
-    await expect(refusalNotice).toContainText("This question could not be answered from the document");
+    await expect(refusalNotice).toContainText(
+      "This question could not be answered from the document",
+    );
 
     // Click "Add this question to lawyer questions"
-    const addQuestionBtn = refusalNotice.getByRole("button", { name: /add this question to lawyer questions/i });
+    const addQuestionBtn = refusalNotice.getByRole("button", {
+      name: /add this question to lawyer questions/i,
+    });
     await addQuestionBtn.click();
 
     // Verify button updates to confirmed state

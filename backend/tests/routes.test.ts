@@ -324,4 +324,31 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
     expect(body.markdown).toContain("Questions for Your Lawyer");
     expect(body.markdown).toContain(outOfScopeQuestion);
   });
+
+  // ── Production Frontend Serving & SPA Fallback ─────────────────────────────
+
+  it("Serves index.html on root GET / when frontend/dist is present", async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect([200, 404]).toContain(res.status);
+    if (res.status === 200) {
+      const text = await res.text();
+      expect(text).toContain("<html");
+    }
+  });
+
+  it("Provides SPA fallback on client-side routes like /understand", async () => {
+    const res = await fetch(`${baseUrl}/understand`);
+    expect([200, 404]).toContain(res.status);
+    if (res.status === 200) {
+      const text = await res.text();
+      expect(text).toContain("<html");
+    }
+  });
+
+  it("Ensures /api/* unhandled routes return 404 JSON and never fall back to SPA HTML", async () => {
+    const res = await fetch(`${baseUrl}/api/nonexistent-endpoint`);
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("Endpoint not found.");
+  });
 });

@@ -34,12 +34,7 @@ interface ExportPanelProps {
   trigger: React.ReactNode;
 }
 
-export function ExportPanel({
-  documentId,
-  persona,
-  outOfScopeQs,
-  trigger,
-}: ExportPanelProps) {
+export function ExportPanel({ documentId, persona, outOfScopeQs, trigger }: ExportPanelProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,9 +71,7 @@ export function ExportPanel({
       setResult(data);
     } catch (err) {
       if (signal.aborted) return;
-      setError(
-        err instanceof Error ? err.message : "Export failed. Please try again.",
-      );
+      setError(err instanceof Error ? err.message : "Export failed. Please try again.");
     } finally {
       if (!signal.aborted) {
         setLoading(false);
@@ -137,8 +130,8 @@ export function ExportPanel({
             Export Checklist &amp; Lawyer Questions
           </DialogTitle>
           <DialogDescription style={{ color: "var(--muted-foreground)" }}>
-            A concrete action checklist and targeted questions to bring to your
-            lawyer, generated from the clause analysis.
+            A concrete action checklist and targeted questions to bring to your lawyer, generated
+            from the clause analysis.
           </DialogDescription>
         </DialogHeader>
 
@@ -168,11 +161,7 @@ export function ExportPanel({
             <Alert variant="destructive" role="alert">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => void fetchExport()}
-            >
+            <Button variant="outline" size="sm" onClick={() => void fetchExport()}>
               Retry
             </Button>
           </div>
@@ -219,7 +208,10 @@ export function ExportPanel({
             </div>
 
             {/* Markdown rendered as styled pre */}
-            <ScrollArea className="h-[400px] w-full rounded-lg border" style={{ borderColor: "var(--border)" }}>
+            <ScrollArea
+              className="h-[400px] w-full rounded-lg border"
+              style={{ borderColor: "var(--border)" }}
+            >
               <pre
                 className="p-4 text-xs leading-relaxed whitespace-pre-wrap font-mono"
                 style={{ color: "var(--foreground)", background: "var(--muted)" }}
@@ -233,8 +225,7 @@ export function ExportPanel({
             {outOfScopeQs.length > 0 && (
               <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                 {outOfScopeQs.length} out-of-scope question
-                {outOfScopeQs.length !== 1 ? "s" : ""} from Q&amp;A included in
-                lawyer questions.
+                {outOfScopeQs.length !== 1 ? "s" : ""} from Q&amp;A included in lawyer questions.
               </p>
             )}
           </div>

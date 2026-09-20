@@ -101,21 +101,14 @@ export function AppShell({
       </header>
 
       {/* ── Main with Tabs ───────────────────────────────────────────────── */}
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="flex flex-1 flex-col outline-none"
-      >
+      <main id="main-content" tabIndex={-1} className="flex flex-1 flex-col outline-none">
         <Tabs
           value={activeTab}
           onValueChange={(v) => onTabChange(v as AppTab)}
           className="flex flex-1 flex-col"
         >
           {/* Tab strip */}
-          <div
-            className="border-b"
-            style={{ borderColor: "var(--border)" }}
-          >
+          <div className="border-b" style={{ borderColor: "var(--border)" }}>
             <div className="mx-auto max-w-5xl px-4 sm:px-6">
               <TabsList
                 className="h-auto rounded-none border-0 bg-transparent p-0"
@@ -124,8 +117,8 @@ export function AppShell({
                 {(
                   [
                     { value: "understand", label: "Understand" },
-                    { value: "compare",    label: "Compare" },
-                    { value: "ask",        label: "Q&A" },
+                    { value: "compare", label: "Compare" },
+                    { value: "ask", label: "Q&A" },
                   ] as const
                 ).map(({ value, label }) => (
                   <TabsTrigger
@@ -133,15 +126,10 @@ export function AppShell({
                     value={value}
                     className="relative rounded-none border-0 bg-transparent px-4 py-3 text-sm font-medium shadow-none transition-colors data-[state=active]:shadow-none"
                     style={{
-                      color:
-                        activeTab === value
-                          ? "var(--foreground)"
-                          : "var(--muted-foreground)",
+                      color: activeTab === value ? "var(--foreground)" : "var(--muted-foreground)",
                       // Active indicator via border-bottom trick
                       borderBottom:
-                        activeTab === value
-                          ? "2px solid var(--primary)"
-                          : "2px solid transparent",
+                        activeTab === value ? "2px solid var(--primary)" : "2px solid transparent",
                     }}
                   >
                     {label}
@@ -152,31 +140,20 @@ export function AppShell({
           </div>
 
           {/* Tab panels */}
-          <TabsContent
-            value="understand"
-            className="mt-0 flex flex-1 flex-col outline-none"
-          >
+          <TabsContent value="understand" className="mt-0 flex flex-1 flex-col outline-none">
             <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
               {understandContent}
             </div>
           </TabsContent>
 
-          <TabsContent
-            value="compare"
-            className="mt-0 flex flex-1 flex-col outline-none"
-          >
+          <TabsContent value="compare" className="mt-0 flex flex-1 flex-col outline-none">
             <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
               {compareContent}
             </div>
           </TabsContent>
 
-          <TabsContent
-            value="ask"
-            className="mt-0 flex flex-1 flex-col outline-none"
-          >
-            <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">
-              {askContent}
-            </div>
+          <TabsContent value="ask" className="mt-0 flex flex-1 flex-col outline-none">
+            <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10 sm:px-6">{askContent}</div>
           </TabsContent>
         </Tabs>
       </main>
