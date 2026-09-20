@@ -33,7 +33,8 @@ const genai = new GoogleGenAI({ apiKey });
 
 // ── Model constants ───────────────────────────────────────────────────────────
 
-const GENERATION_MODEL = "gemini-3.6-flash";
+const GENERATION_MODEL = "gemini-3.5-flash-lite";
+const FALLBACK_GENERATION_MODEL = "gemini-3.5-flash";
 const EMBEDDING_MODEL = "gemini-embedding-001";
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -165,10 +166,10 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
   // Sanitise: strip keywords unsupported by Gemini's responseSchema (OpenAPI 3.0 subset).
   const jsonSchema = sanitizeForGemini(rawJsonSchema);
 
-  try {
-    const response = await withRetry(() =>
+  const callModel = (model: string) =>
+    withRetry(() =>
       genai.models.generateContent({
-        model: GENERATION_MODEL,
+        model,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -176,6 +177,22 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
         },
       }),
     );
+
+  try {
+    let response;
+    try {
+      response = await callModel(GENERATION_MODEL);
+    } catch (primaryErr) {
+      const code = extractErrorCode(primaryErr);
+      if (code === 429 || code === 503) {
+        logger.info(
+          `Primary model ${GENERATION_MODEL} returned ${code}; attempting fallback model ${FALLBACK_GENERATION_MODEL}`,
+        );
+        response = await callModel(FALLBACK_GENERATION_MODEL);
+      } else {
+        throw primaryErr;
+      }
+    }
 
     const text = response.text;
     if (!text) {
