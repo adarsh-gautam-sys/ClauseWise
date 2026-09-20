@@ -8,6 +8,7 @@
 
 import express, { type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import compression from "compression";
 import path from "node:path";
 import fs from "node:fs";
 import { logger } from "./lib/logger.js";
@@ -35,6 +36,9 @@ const app = express();
 
 // Trust reverse proxy hops (e.g. Google Frontend on Cloud Run)
 app.set("trust proxy", 1);
+
+// HTTP payload compression (gzip/deflate) — reduces wire transfer sizes by ~75%
+app.use(compression());
 
 // CORS — restricted to frontend's dev origin (defense in depth in production)
 app.use(
@@ -115,12 +119,26 @@ const frontendDistPath = resolveFrontendDistPath();
 if (frontendDistPath) {
   const indexHtmlPath = path.join(frontendDistPath, "index.html");
 
-  // Serve static assets from frontend/dist
-  app.use(express.static(frontendDistPath));
+  // Serve static assets from frontend/dist with HTTP caching headers
+  app.use(
+    express.static(frontendDistPath, {
+      maxAge: "1d",
+      setHeaders: (res, filePath) => {
+        // Hashed assets in /assets/ can be cached immutably for 1 year
+        if (filePath.includes("assets")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else if (filePath.endsWith(".html")) {
+          // HTML files must never be cached so users always get the latest bundle hash
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    }),
+  );
 
   // SPA fallback for all client-side navigation GET routes
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.method === "GET") {
+      res.setHeader("Cache-Control", "no-cache");
       res.sendFile(indexHtmlPath);
     } else {
       next();

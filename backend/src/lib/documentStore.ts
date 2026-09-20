@@ -57,6 +57,9 @@ const TTL_MS = 30 * 60 * 1_000; // 30 minutes
 /** How often the background sweep runs. */
 const PURGE_INTERVAL_MS = 5 * 60 * 1_000; // every 5 minutes
 
+/** Maximum number of documents retained simultaneously in memory (LRU capacity bound). */
+const MAX_DOCUMENTS = 100;
+
 // ── Internal store ────────────────────────────────────────────────────────────
 
 const store = new Map<string, StoredDocument>();
@@ -79,15 +82,23 @@ purgeTimer.unref();
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Persist a document in memory.
+ * Persist a document in memory with strict LRU capacity bounds.
  * Call this exactly once per uploaded document.
  */
 export function storeDocument(doc: StoredDocument): void {
+  // Enforce bounded memory: evict least-recently-used item if at capacity
+  if (store.size >= MAX_DOCUMENTS && !store.has(doc.documentId)) {
+    const oldestKey = store.keys().next().value;
+    if (oldestKey !== undefined) {
+      store.delete(oldestKey);
+    }
+  }
   store.set(doc.documentId, doc);
 }
 
 /**
  * Retrieve a document by its ID.
+ * Refreshes access order for LRU tracking.
  * Returns undefined if the ID is unknown or the entry has expired.
  */
 export function getDocument(documentId: string): StoredDocument | undefined {
@@ -99,6 +110,11 @@ export function getDocument(documentId: string): StoredDocument | undefined {
     store.delete(documentId);
     return undefined;
   }
+
+  // Refresh LRU recency
+  store.delete(documentId);
+  store.set(documentId, doc);
+
   return doc;
 }
 

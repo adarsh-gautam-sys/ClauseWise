@@ -83,12 +83,37 @@ export function topKChunks(
   // Clamp k to a valid range.
   const safeK = Math.max(1, Math.min(k, chunks.length));
 
+  // Precompute query vector magnitude once to avoid redundant O(D) work per chunk.
+  const queryLen = queryEmbedding.length;
+  let magA = 0;
+  for (let i = 0; i < queryLen; i++) {
+    const val = queryEmbedding[i] ?? 0;
+    magA += val * val;
+  }
+  const sqrtMagA = Math.sqrt(magA);
+
   // Score every chunk.
-  const scored = chunks.map((chunk, i) => ({
-    chunk,
-    score: cosineSimilarity(queryEmbedding, chunkEmbeddings[i] ?? []),
-    originalIndex: i,
-  }));
+  const scored = chunks.map((chunk, i) => {
+    const b = chunkEmbeddings[i] ?? [];
+    let score = 0;
+    if (sqrtMagA > 0 && b.length === queryLen) {
+      let dot = 0;
+      let magB = 0;
+      for (let j = 0; j < queryLen; j++) {
+        const ai = queryEmbedding[j] ?? 0;
+        const bi = b[j] ?? 0;
+        dot += ai * bi;
+        magB += bi * bi;
+      }
+      const denom = sqrtMagA * Math.sqrt(magB);
+      score = denom === 0 ? 0 : dot / denom;
+    }
+    return {
+      chunk,
+      score,
+      originalIndex: i,
+    };
+  });
 
   // Sort: highest score first; original index as tiebreaker (stable).
   scored.sort((a, b) => {

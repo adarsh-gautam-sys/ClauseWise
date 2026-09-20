@@ -34,6 +34,13 @@ export async function embedText(text: string): Promise<number[]> {
 }
 
 /**
+ * Deterministic batch embedding mock.
+ */
+export async function embedTexts(texts: string[], _concurrency = 4): Promise<number[][]> {
+  return Promise.all(texts.map((t) => embedText(t)));
+}
+
+/**
  * Generate schema-valid JSON string matching the expected prompt structure.
  */
 export async function generateStructured(prompt: string, _schema: z.ZodType): Promise<string> {

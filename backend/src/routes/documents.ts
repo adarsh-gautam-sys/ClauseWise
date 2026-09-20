@@ -31,7 +31,7 @@ import {
   setChunkEmbeddings,
   setClauseEmbeddings,
 } from "../lib/documentStore.js";
-import { generateStructured, embedText } from "../services/geminiClient.js";
+import { generateStructured, embedText, embedTexts } from "../services/geminiClient.js";
 import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
 import {
   buildAnalyzePrompt,
@@ -248,6 +248,15 @@ documentsRouter.post(
         );
       }
 
+      // ── Fast cache return ────────────────────────────────────────────────────
+      if (doc.classification) {
+        res.status(200).json({
+          documentId: id,
+          ...doc.classification,
+        });
+        return;
+      }
+
       // ── Build prompt (template in prompts/classify.ts per AGENTS.md) ─────────
 
       const prompt = buildClassifyPrompt(doc.fullText);
@@ -323,13 +332,21 @@ documentsRouter.use((err: unknown, _req: Request, res: Response, next: NextFunct
  * We intentionally never throw here — a missing reference file degrades
  * gracefully (severity calibration is skipped, not a hard failure).
  */
+// In-memory cache for static reference clauses — eliminates disk I/O and JSON parse per request.
+const referenceClauseCache = new Map<DocumentType, Record<string, unknown>>();
+
 async function loadReferenceClauses(documentType: DocumentType): Promise<Record<string, unknown>> {
+  const cached = referenceClauseCache.get(documentType);
+  if (cached) return cached;
+
   const filePath = join(REFERENCE_CLAUSES_DIR, `${documentType}.json`);
   try {
     const raw = await readFile(filePath, "utf-8");
     const parsed: unknown = JSON.parse(raw);
     if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
+      const record = parsed as Record<string, unknown>;
+      referenceClauseCache.set(documentType, record);
+      return record;
     }
     return {};
   } catch {
@@ -459,6 +476,19 @@ documentsRouter.post(
       // anything not in the allowed set, which degrades to severity order.
 
       const persona = parsePersona((req.body as Record<string, unknown> | undefined)?.["persona"]);
+
+      // ── Fast cache check: re-score existing clauses without LLM call ─────────
+      if (doc.analysis) {
+        const prioritisedClauses = prioritizeClauses(doc.analysis.clauses, document_type, persona);
+        res.status(200).json({
+          documentId: id,
+          document_type,
+          persona,
+          summary: doc.analysis.summary,
+          clauses: prioritisedClauses,
+        });
+        return;
+      }
 
       // ── Load reference clauses (severity calibration) ────────────────────────
 
@@ -598,13 +628,9 @@ documentsRouter.post(
         // Cached from a previous /ask call — skip re-embedding.
         chunkEmbeddings = doc.chunkEmbeddings;
       } else {
-        // First question for this document — embed all chunks sequentially.
-        const embeddings: number[][] = [];
-        for (const chunk of doc.chunks) {
-          // AGENTS.md: all Gemini calls go through geminiClient.ts only.
-          const embedding = await embedText(chunk.text);
-          embeddings.push(embedding);
-        }
+        // First question for this document — embed all chunks with bounded parallel pool.
+        const texts = doc.chunks.map((c) => c.text);
+        const embeddings = await embedTexts(texts);
         setChunkEmbeddings(id, embeddings);
         chunkEmbeddings = embeddings;
       }
@@ -769,11 +795,8 @@ documentsRouter.post(
         cached: number[][] | undefined,
       ): Promise<number[][]> {
         if (cached) return cached;
-        const embeddings: number[][] = [];
-        for (const clause of clauses) {
-          const emb = await embedText(clause.plain_language_summary);
-          embeddings.push(emb);
-        }
+        const texts = clauses.map((c) => c.plain_language_summary);
+        const embeddings = await embedTexts(texts);
         setClauseEmbeddings(docId, embeddings);
         return embeddings;
       }

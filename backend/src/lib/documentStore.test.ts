@@ -63,4 +63,19 @@ describe("documentStore", () => {
     const retrieved = getDocument("expired-doc");
     expect(retrieved).toBeUndefined();
   });
+
+  it("enforces LRU capacity bound and evicts oldest items when exceeding limit", () => {
+    for (let i = 0; i < 105; i++) {
+      storeDocument({
+        ...sampleDoc,
+        documentId: `lru-doc-${i}`,
+      });
+    }
+    // Maximum store size must not exceed 100
+    expect(_storeSize()).toBeLessThanOrEqual(100);
+    // Oldest document (lru-doc-0) should have been evicted
+    expect(getDocument("lru-doc-0")).toBeUndefined();
+    // Most recent document (lru-doc-104) should still exist
+    expect(getDocument("lru-doc-104")).toBeDefined();
+  });
 });

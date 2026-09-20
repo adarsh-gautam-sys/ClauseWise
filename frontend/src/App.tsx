@@ -14,16 +14,19 @@
  *   id={clauseId}. Called from Q&A cited-section buttons.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, lazy, Suspense } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppShell, type AppTab } from "@/components/AppShell";
 import { UploadScreen } from "@/components/UploadScreen";
 import { UnderstandPage } from "@/pages/UnderstandPage";
-import { ComparePage } from "@/pages/ComparePage";
-import { QAPage } from "@/pages/QAPage";
 import { PlaceholderScreen } from "@/components/PlaceholderScreen";
 import type { Persona } from "@/components/PersonaSelect";
 import type { UploadResult, AnalysisResult } from "@/types";
+
+const ComparePage = lazy(() =>
+  import("@/pages/ComparePage").then((m) => ({ default: m.ComparePage })),
+);
+const QAPage = lazy(() => import("@/pages/QAPage").then((m) => ({ default: m.QAPage })));
 
 function App() {
   const [persona, setPersona] = useState<Persona | "">("");
@@ -104,7 +107,15 @@ function App() {
         description="Upload and analyze a document on the Understand tab, then come back here to compare it with a second document."
       />
     ) : (
-      <ComparePage docAResult={analysisResult} persona={persona} />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center p-12 text-muted-foreground text-sm">
+            Loading comparison...
+          </div>
+        }
+      >
+        <ComparePage docAResult={analysisResult} persona={persona} />
+      </Suspense>
     );
 
   const askContent =
@@ -114,12 +125,20 @@ function App() {
         description="Upload and analyze a document on the Understand tab, then come back here to ask questions about it."
       />
     ) : (
-      <QAPage
-        analysisResult={analysisResult}
-        onScrollToClause={scrollToClause}
-        onAddOutOfScope={handleAddOutOfScope}
-        outOfScopeAdded={outOfScopeAdded}
-      />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center p-12 text-muted-foreground text-sm">
+            Loading Q&A...
+          </div>
+        }
+      >
+        <QAPage
+          analysisResult={analysisResult}
+          onScrollToClause={scrollToClause}
+          onAddOutOfScope={handleAddOutOfScope}
+          outOfScopeAdded={outOfScopeAdded}
+        />
+      </Suspense>
     );
 
   return (
