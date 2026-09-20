@@ -16,7 +16,7 @@
  */
 
 import { useState, useCallback } from "react";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DocumentDropzone } from "@/components/DocumentDropzone";
@@ -142,8 +142,7 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
           {/* Persona reminder if not yet selected */}
           {missingPersona && (
             <div
-              className="mb-5 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
-              role="note"
+              className="mb-5 flex items-start gap-2.5 rounded-lg border px-4 py-3 text-sm"
               aria-live="polite"
               style={{
                 borderColor: "var(--border)",
@@ -151,7 +150,12 @@ export function UploadScreen({ persona, onSuccess, label, submitLabel = "Analyze
                 color: "var(--muted-foreground)",
               }}
             >
-              <span aria-hidden="true">👆</span>
+              <User
+                size={16}
+                className="mt-0.5 flex-shrink-0"
+                style={{ color: "var(--primary)" }}
+                aria-hidden="true"
+              />
               <span>
                 Select <strong style={{ color: "var(--foreground)" }}>who you are</strong> in
                 the dropdown above before uploading — it determines which clauses are

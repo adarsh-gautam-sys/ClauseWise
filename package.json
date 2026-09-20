@@ -1,0 +1,12 @@
+{
+  "name": "clausewise-monorepo",
+  "private": true,
+  "description": "ClauseWise: AI legal document copilot for Google Virtual Promptwars",
+  "scripts": {
+    "test:unit": "npm --prefix backend test",
+    "test:integration": "npm --prefix backend test tests/routes.test.ts",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "test:a11y": "npm --prefix frontend run test:a11y",
+    "test:all": "npm --prefix backend test && npm --prefix frontend run test:e2e && npm --prefix frontend run test:a11y"
+  }
+}

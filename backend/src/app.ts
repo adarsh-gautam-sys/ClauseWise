@@ -34,8 +34,8 @@ app.use(
   }),
 );
 
-// JSON body parsing — 100 kb limit (tightened in the security pass)
-app.use(express.json({ limit: "100kb" }));
+// JSON body parsing — 2 MB limit to accommodate up to 150 000 character pasted text
+app.use(express.json({ limit: "2mb" }));
 
 // ── Request logging middleware ────────────────────────────────────────────────
 
@@ -62,6 +62,12 @@ app.get("/health", (_req: Request, res: Response) => {
 
 app.use("/api/documents", documentsRouter);
 
+// ── 404 handler for unknown routes ────────────────────────────────────────────
+
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: "Endpoint not found." });
+});
+
 // ── Centralized error handler ─────────────────────────────────────────────────
 
 /**
@@ -74,6 +80,28 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err.status >= 500) logger.error("AppError 5xx", err);
     res.status(err.status).json({ error: err.message });
     return;
+  }
+
+  // Handle standard HTTP client errors (e.g. malformed JSON or payload too large from body-parser)
+  if (err != null && typeof err === "object") {
+    const errorObj = err as { status?: unknown; statusCode?: unknown };
+    const status =
+      typeof errorObj.status === "number"
+        ? errorObj.status
+        : typeof errorObj.statusCode === "number"
+          ? errorObj.statusCode
+          : undefined;
+
+    if (status !== undefined && status >= 400 && status < 500) {
+      const message =
+        status === 400
+          ? "Malformed JSON in request body."
+          : status === 413
+            ? "Request payload exceeds size limit."
+            : "Bad request.";
+      res.status(status).json({ error: message });
+      return;
+    }
   }
 
   logger.error("Unhandled error", err);

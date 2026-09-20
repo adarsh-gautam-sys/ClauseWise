@@ -19,8 +19,6 @@ export function PlaceholderScreen({ title, description }: PlaceholderScreenProps
   return (
     <div
       className="flex flex-1 flex-col items-center justify-center py-24 text-center"
-      role="region"
-      aria-label={title}
     >
       <div
         className="mx-auto flex max-w-sm flex-col items-center gap-4 rounded-2xl border px-8 py-10"

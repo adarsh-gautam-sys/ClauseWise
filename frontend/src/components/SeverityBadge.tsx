@@ -46,15 +46,15 @@ export function SeverityBadge({ level, className }: SeverityBadgeProps) {
   const { label, dotStyle, containerStyle } = CONFIG[level];
   return (
     <span
-      role="img"
-      aria-label={`Severity: ${label}`}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
         containerStyle,
         className,
       )}
     >
-      {/* Color dot — purely decorative; text label carries the meaning */}
+      {/* Visually-hidden severity prefix for screen readers */}
+      <span className="sr-only">Severity: </span>
+      {/* Color dot — purely decorative; sr-only prefix + text label carry the meaning */}
       <span
         className={cn("inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full", dotStyle)}
         aria-hidden="true"

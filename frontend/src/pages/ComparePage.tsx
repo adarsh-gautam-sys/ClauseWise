@@ -12,8 +12,8 @@
  * Document A state comes from App.tsx via props.
  */
 
-import { useState, useId } from "react";
-import { ArrowLeftRight, Loader2, RotateCcw, FileText } from "lucide-react";
+import { useState, useId, useRef, useEffect } from "react";
+import { ArrowLeftRight, Loader2, RotateCcw, FileText, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -43,18 +43,40 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
   const [docBAnalysis, setDocBAnalysis] = useState<AnalysisResult | null>(null);
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const liveId = useId();
+
+  // Clean up any in-flight requests on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  const handleCancelAnalysis = () => {
+    abortRef.current?.abort();
+    resetB();
+  };
 
   const handleDocBUploaded = async (result: UploadResult) => {
     setDocBUpload(result);
     setError(null);
     setPhase("analyzing_b");
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+
     try {
-      await classifyDocument(result.documentId);
-      const analysis = await analyzeDocument(result.documentId, persona || "unknown");
+      await classifyDocument(result.documentId, signal);
+      if (signal.aborted) return;
+      const analysis = await analyzeDocument(result.documentId, persona || "unknown", signal);
+      if (signal.aborted) return;
       setDocBAnalysis(analysis);
       setPhase("ready");
     } catch (err) {
+      if (signal.aborted) return;
       setError(
         err instanceof Error
           ? err.message
@@ -68,14 +90,23 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
     if (!docBUpload) return;
     setPhase("comparing");
     setError(null);
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+
     try {
       const result = await compareDocuments(
         docAResult.documentId,
         docBUpload.documentId,
+        signal,
       );
+      if (signal.aborted) return;
       setCompareResult(result);
       setPhase("done");
     } catch (err) {
+      if (signal.aborted) return;
       setError(
         err instanceof Error
           ? err.message
@@ -86,6 +117,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
   };
 
   const resetB = () => {
+    abortRef.current?.abort();
     setDocBUpload(null);
     setDocBAnalysis(null);
     setCompareResult(null);
@@ -150,7 +182,10 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
 
       {/* ── Analyzing B ───────────────────────────────────────────────── */}
       {phase === "analyzing_b" && (
-        <LoadingState label="Analyzing Document B…" />
+        <LoadingState
+          label="Analyzing Document B…"
+          onCancel={handleCancelAnalysis}
+        />
       )}
 
       {/* ── Ready to compare ──────────────────────────────────────────── */}
@@ -173,6 +208,7 @@ export function ComparePage({ docAResult, persona }: ComparePageProps) {
               variant="ghost"
               size="sm"
               onClick={resetB}
+              className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2.5 sm:py-1.5 text-xs inline-flex items-center"
               style={{ color: "var(--muted-foreground)" }}
             >
               Change Document B
@@ -270,7 +306,7 @@ function DocLabel({
   );
 }
 
-function LoadingState({ label }: { label: string }) {
+function LoadingState({ label, onCancel }: { label: string; onCancel?: () => void }) {
   return (
     <div
       className="flex flex-col items-center gap-3 py-12"
@@ -286,6 +322,18 @@ function LoadingState({ label }: { label: string }) {
       <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
         {label}
       </p>
+      {onCancel && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+          className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2 sm:py-1 gap-1.5 text-xs font-normal inline-flex items-center"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          <X size={13} aria-hidden="true" />
+          Cancel
+        </Button>
+      )}
     </div>
   );
 }

@@ -60,7 +60,7 @@ export function PersonaSelect({ value, onChange }: PersonaSelectProps) {
       >
         <SelectTrigger
           id="persona-select-trigger"
-          className="h-8 w-[160px] text-xs sm:w-[180px]"
+          className="min-h-[44px] sm:min-h-0 sm:h-8 w-[160px] text-xs sm:w-[180px]"
           aria-label="Select your persona"
           style={{
             background: "var(--card)",
@@ -80,7 +80,7 @@ export function PersonaSelect({ value, onChange }: PersonaSelectProps) {
             <SelectItem
               key={p.value}
               value={p.value}
-              className="text-xs"
+              className="py-2.5 sm:py-1.5 text-xs"
             >
               <span className="font-medium">{p.label}</span>
               <span

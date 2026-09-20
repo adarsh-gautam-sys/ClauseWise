@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 build/
+playwright-report/
+test-results/
 
 # Environment
 .env
@@ -22,6 +24,7 @@ Thumbs.db
 # Cache
 .eslintcache
 *.tsbuildinfo
+graphify-out/
 
 # Impeccable local config (not shared)
 .impeccable/config.local.json

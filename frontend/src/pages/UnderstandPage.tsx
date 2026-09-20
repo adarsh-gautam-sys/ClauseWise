@@ -14,8 +14,8 @@
  * ARIA live region announces when analysis completes (PRD §11).
  */
 
-import { useEffect, useState, useId } from "react";
-import { Loader2, FileText, Download, RotateCcw, User } from "lucide-react";
+import { useEffect, useState, useRef, useId } from "react";
+import { Loader2, FileText, Download, RotateCcw, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ClauseAccordion } from "@/components/ClauseAccordion";
@@ -75,28 +75,50 @@ export function UnderstandPage({
 }: UnderstandPageProps) {
   const [step, setStep] = useState<Step>(analysisResult ? "done" : "idle");
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const liveId = useId();
+
+  const handleCancel = () => {
+    abortRef.current?.abort();
+    onReset();
+  };
 
   const runAnalysis = async () => {
     setError(null);
+    // Create a fresh abort controller for this run
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
     try {
       setStep("classifying");
-      await classifyDocument(uploadResult.documentId);
+      await classifyDocument(uploadResult.documentId, signal);
+
+      if (signal.aborted) return;
 
       setStep("analyzing");
       const result = await analyzeDocument(
         uploadResult.documentId,
         persona || "unknown",
+        signal,
       );
+      if (signal.aborted) return;
+
       onAnalysisComplete(result);
       setStep("done");
     } catch (err) {
+      if (signal.aborted) return; // cancelled — onReset already called
       setError(
         err instanceof Error ? err.message : "Analysis failed. Please try again.",
       );
       setStep("error");
     }
   };
+
+  // Abort any in-flight analysis on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   useEffect(() => {
     if (!analysisResult) {
@@ -193,6 +215,17 @@ export function UnderstandPage({
             <p className="max-w-xs text-center text-xs" style={{ color: "var(--muted-foreground)" }}>
               This may take 10–20 seconds depending on document length.
             </p>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2 sm:py-1 gap-1.5 text-xs font-normal inline-flex items-center"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <X size={13} aria-hidden="true" />
+              Cancel analysis
+            </Button>
           </>
         )}
       </div>
@@ -235,7 +268,7 @@ export function UnderstandPage({
                 style={{
                   borderColor: "var(--primary)",
                   color: "var(--primary)",
-                  background: "var(--primary)" + "1a",
+                  background: "var(--accent)",
                 }}
                 aria-label={`Analyzed for: ${personaLabel}`}
               >
@@ -259,7 +292,7 @@ export function UnderstandPage({
           variant="ghost"
           size="sm"
           onClick={onReset}
-          className="flex-shrink-0 gap-1.5 self-start text-xs"
+          className="flex-shrink-0 min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2.5 sm:py-1.5 gap-1.5 self-start text-xs inline-flex items-center"
           style={{ color: "var(--muted-foreground)" }}
           aria-label="Upload a different document and start over"
         >

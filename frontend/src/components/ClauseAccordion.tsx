@@ -94,8 +94,7 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
       data-default-open={defaultOpen}
     >
       <AccordionTrigger
-        className="px-4 py-3.5 hover:no-underline [&>svg]:flex-shrink-0"
-        aria-label={`${clause.section_reference} — expand for details`}
+        className="px-4 py-3.5 rounded-lg transition-colors hover:bg-[var(--muted)] [&>svg]:flex-shrink-0"
       >
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-left">
           {/* Section reference */}

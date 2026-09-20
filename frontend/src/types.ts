@@ -56,12 +56,15 @@ export interface AskResult {
 
 export interface ChatMessage {
   id: string;
-  role: "user" | "assistant";
-  question?: string;           // for user messages
+  role: "user" | "assistant" | "error";
+  question?: string;           // for user messages and error retry
   answer?: string;             // for assistant messages
   cited_sections?: string[];
   in_scope?: boolean;
   addedToLawyer?: boolean;     // tracked locally
+  /** Error messages — retryQuestion is re-sent when user clicks Retry */
+  errorText?: string;
+  retryQuestion?: string;
 }
 
 // ── Compare ───────────────────────────────────────────────────────────────────

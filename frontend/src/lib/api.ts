@@ -58,9 +58,11 @@ export async function uploadText(text: string): Promise<UploadResult> {
 
 export async function classifyDocument(
   documentId: string,
+  signal?: AbortSignal,
 ): Promise<ClassifyResult> {
   const res = await fetch(`${API_BASE}/api/documents/${documentId}/classify`, {
     method: "POST",
+    signal,
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json() as Promise<ClassifyResult>;
@@ -71,11 +73,13 @@ export async function classifyDocument(
 export async function analyzeDocument(
   documentId: string,
   persona: string,
+  signal?: AbortSignal,
 ): Promise<AnalysisResult> {
   const res = await fetch(`${API_BASE}/api/documents/${documentId}/analyze`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ persona }),
+    signal,
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json() as Promise<AnalysisResult>;
@@ -86,11 +90,13 @@ export async function analyzeDocument(
 export async function askQuestion(
   documentId: string,
   question: string,
+  signal?: AbortSignal,
 ): Promise<AskResult> {
   const res = await fetch(`${API_BASE}/api/documents/${documentId}/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question }),
+    signal,
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json() as Promise<AskResult>;
@@ -101,11 +107,13 @@ export async function askQuestion(
 export async function compareDocuments(
   docAId: string,
   docBId: string,
+  signal?: AbortSignal,
 ): Promise<CompareResult> {
   const res = await fetch(`${API_BASE}/api/documents/compare`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ doc_a_id: docAId, doc_b_id: docBId }),
+    signal,
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json() as Promise<CompareResult>;
@@ -117,11 +125,13 @@ export async function exportDocument(
   documentId: string,
   persona: string,
   outOfScopeQuestions: string[],
+  signal?: AbortSignal,
 ): Promise<ExportResult> {
   const res = await fetch(`${API_BASE}/api/documents/${documentId}/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ persona, out_of_scope_questions: outOfScopeQuestions }),
+    signal,
   });
   if (!res.ok) throw new Error(await extractError(res));
   return res.json() as Promise<ExportResult>;

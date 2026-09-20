@@ -11,7 +11,7 @@
  *   trigger         — React node to use as the Dialog trigger (e.g. a Button)
  */
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Copy, Check, Download, Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -45,37 +45,67 @@ export function ExportPanel({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const handleOpen = async (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen && result === null) {
       await fetchExport();
+    } else if (!isOpen) {
+      abortRef.current?.abort();
     }
   };
 
   const fetchExport = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const { signal } = controller;
+
     setLoading(true);
     setError(null);
     try {
-      const data = await exportDocument(documentId, persona, outOfScopeQs);
+      const data = await exportDocument(documentId, persona, outOfScopeQs, signal);
+      if (signal.aborted) return;
       setResult(data);
     } catch (err) {
+      if (signal.aborted) return;
       setError(
         err instanceof Error ? err.message : "Export failed. Please try again.",
       );
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
   };
 
   const handleCopy = async () => {
     if (!result) return;
     try {
-      await navigator.clipboard.writeText(result.markdown);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(result.markdown);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = result.markdown;
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand("copy");
+        textArea.remove();
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard not available — silently fail
+      // User can still download using the download button
     }
   };
 
@@ -157,7 +187,7 @@ export function ExportPanel({
                 variant="ghost"
                 size="sm"
                 onClick={() => void handleDownload()}
-                className="gap-1.5 text-xs"
+                className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2.5 sm:py-1.5 gap-1.5 text-xs inline-flex items-center"
                 style={{ color: "var(--muted-foreground)" }}
                 aria-label="Download as Markdown file"
               >
@@ -168,8 +198,16 @@ export function ExportPanel({
                 variant="outline"
                 size="sm"
                 onClick={() => void handleCopy()}
-                className="gap-1.5 text-xs"
-                aria-label={copied ? "Copied!" : "Copy Markdown to clipboard"}
+                className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2.5 sm:py-1.5 gap-1.5 text-xs inline-flex items-center transition-colors"
+                style={
+                  copied
+                    ? {
+                        borderColor: "var(--severity-low)",
+                        color: "var(--severity-low)",
+                      }
+                    : {}
+                }
+                aria-label={copied ? "Copied to clipboard" : "Copy Markdown to clipboard"}
               >
                 {copied ? (
                   <Check size={13} aria-hidden="true" />

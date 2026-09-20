@@ -49,14 +49,8 @@ export function AppShell({
   return (
     <div className="flex min-h-dvh flex-col" style={{ background: "var(--background)" }}>
       {/* ── Skip link ─────────────────────────────────────────────────────── */}
-      <a
-        href="#main-content"
-        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:left-4 focus-visible:top-4 focus-visible:z-50 focus-visible:rounded-md focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-semibold"
-        style={{
-          background: "var(--primary)",
-          color: "var(--primary-foreground)",
-        }}
-      >
+      {/* .skip-link CSS in index.css: hidden by default, visible on focus-visible */}
+      <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
 

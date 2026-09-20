@@ -13,7 +13,7 @@
  */
 
 import { useRef, useState, useId, useCallback } from "react";
-import { Upload, FileText, X } from "lucide-react";
+import { Upload, FileText, X, ArrowRight, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -129,7 +129,7 @@ export function DocumentDropzone({
             setValidationError(null);
           }}
           disabled={disabled}
-          className="h-auto px-2 py-1 text-xs"
+          className="min-h-[44px] sm:min-h-0 h-auto px-3 py-2 sm:px-2 sm:py-1 text-xs inline-flex items-center"
           style={{ color: "var(--primary)" }}
           aria-label={
             mode === "file"
@@ -137,7 +137,17 @@ export function DocumentDropzone({
               : "Switch to file upload mode"
           }
         >
-          {mode === "file" ? "Paste text instead →" : "← Upload a file instead"}
+          {mode === "file" ? (
+            <>
+              <span>Paste text instead</span>
+              <ArrowRight size={13} className="ml-1.5" aria-hidden="true" />
+            </>
+          ) : (
+            <>
+              <ArrowLeft size={13} className="mr-1.5" aria-hidden="true" />
+              <span>Upload a file instead</span>
+            </>
+          )}
         </Button>
       </div>
 
@@ -155,15 +165,40 @@ export function DocumentDropzone({
 
       {mode === "file" ? (
         <>
+          {/* Visually hidden file input — OUTSIDE the role="button" div to avoid
+              axe nested-interactive violation. Triggered programmatically via ref. */}
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED_EXTENSIONS}
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={handleInputChange}
+            disabled={disabled}
+          />
+
           {/* ── Dropzone ─────────────────────────────────────────────── */}
           <div
-            role="button"
-            tabIndex={disabled ? -1 : 0}
-            aria-label="Upload document — click or drag and drop"
-            aria-describedby={validationError ? errorId : undefined}
-            aria-disabled={disabled}
-            onClick={() => !disabled && !file && inputRef.current?.click()}
-            onKeyDown={handleKeyDown}
+            {...(file
+              ? {
+                  // File is loaded: the div is a non-interactive container.
+                  // The only action is the inner "Remove" Button.
+                  // role="group" gives screen readers a labelled region without
+                  // nesting an interactive element inside another interactive element.
+                  role: "group" as const,
+                  "aria-label": `Uploaded file: ${file.name}`,
+                }
+              : {
+                  // No file: the div is the drag-and-drop / click trigger.
+                  role: "button" as const,
+                  tabIndex: disabled ? -1 : 0,
+                  "aria-label": "Upload document — click or drag and drop",
+                  "aria-describedby": validationError ? errorId : undefined,
+                  "aria-disabled": disabled,
+                  onClick: () => !disabled && !file && inputRef.current?.click(),
+                  onKeyDown: handleKeyDown,
+                })}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -215,7 +250,7 @@ export function DocumentDropzone({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 flex-shrink-0"
+                  className="h-10 w-10 sm:h-8 sm:w-8 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex-shrink-0"
                   onClick={(e) => {
                     e.stopPropagation();
                     clearFile();
@@ -223,7 +258,7 @@ export function DocumentDropzone({
                   aria-label={`Remove ${file.name}`}
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  <X size={14} aria-hidden="true" />
+                  <X size={15} aria-hidden="true" />
                 </Button>
               </div>
             ) : (
@@ -257,18 +292,6 @@ export function DocumentDropzone({
                 </div>
               </div>
             )}
-
-            {/* Visually hidden file input */}
-            <input
-              ref={inputRef}
-              type="file"
-              accept={ACCEPTED_EXTENSIONS}
-              className="sr-only"
-              aria-hidden="true"
-              tabIndex={-1}
-              onChange={handleInputChange}
-              disabled={disabled}
-            />
           </div>
 
           {/* Validation error */}
@@ -297,7 +320,7 @@ export function DocumentDropzone({
             rows={10}
             aria-label="Paste document text"
             aria-describedby={`${textareaId}-count`}
-            className="resize-y text-sm leading-relaxed"
+            className="resize-y text-base sm:text-sm leading-relaxed"
             style={{
               background: "var(--card)",
               borderColor: "var(--border)",

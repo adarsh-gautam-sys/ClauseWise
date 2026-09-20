@@ -31,9 +31,9 @@ const FAVORS_META: Record<
   FavorsValue,
   { label: string; Icon: React.ElementType; color: string }
 > = {
-  doc_a: { label: "← Favors A", Icon: ArrowLeft,  color: "var(--severity-low)" },
-  doc_b: { label: "→ Favors B", Icon: ArrowRight, color: "var(--severity-medium)" },
-  neutral: { label: "= Neutral",  Icon: Minus,      color: "var(--muted-foreground)" },
+  doc_a: { label: "Favors A", Icon: ArrowLeft,  color: "var(--severity-low)" },
+  doc_b: { label: "Favors B", Icon: ArrowRight, color: "var(--severity-medium)" },
+  neutral: { label: "Neutral",  Icon: Minus,      color: "var(--muted-foreground)" },
 };
 
 function FavorsCell({ favors }: { favors: FavorsValue }) {
@@ -155,11 +155,11 @@ export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProp
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: "var(--muted-foreground)" }}>
                   <div>
-                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>A</p>
+                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>{docALabel}</p>
                     <p>{entry.doc_a_summary}</p>
                   </div>
                   <div>
-                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>B</p>
+                    <p className="mb-1 font-semibold" style={{ color: "var(--foreground)" }}>{docBLabel}</p>
                     <p>{entry.doc_b_summary}</p>
                   </div>
                 </div>
@@ -193,7 +193,7 @@ export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProp
                 />
                 Only in {docALabel} ({onlyA.length})
               </h2>
-              <ul className="flex flex-col gap-2" role="list">
+              <ul className="flex flex-col gap-2">
                 {onlyA.map((entry, i) => (
                   <li
                     key={i}
@@ -230,7 +230,7 @@ export function CompareTable({ entries, docALabel, docBLabel }: CompareTableProp
                 />
                 Only in {docBLabel} ({onlyB.length})
               </h2>
-              <ul className="flex flex-col gap-2" role="list">
+              <ul className="flex flex-col gap-2">
                 {onlyB.map((entry, i) => (
                   <li
                     key={i}

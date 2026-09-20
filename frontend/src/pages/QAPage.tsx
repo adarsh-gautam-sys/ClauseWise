@@ -59,6 +59,7 @@ export function QAPage({
       >
         <ChatPanel
           documentId={analysisResult.documentId}
+          clauses={analysisResult.clauses}
           onScrollToClause={onScrollToClause}
           onAddOutOfScope={onAddOutOfScope}
           outOfScopeAdded={outOfScopeAdded}
