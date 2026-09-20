@@ -33,6 +33,9 @@ const allowedOrigin = process.env["FRONTEND_ORIGIN"] ?? "http://localhost:5173";
 
 const app = express();
 
+// Trust reverse proxy hops (e.g. Google Frontend on Cloud Run)
+app.set("trust proxy", 1);
+
 // CORS — restricted to frontend's dev origin (defense in depth in production)
 app.use(
   cors({
