@@ -48,34 +48,74 @@ const EMBEDDING_MODEL = "gemini-embedding-001";
  *                parsed result with `schema.parse()` before use.
  * @returns       The raw model response text (valid JSON expected).
  */
-// ── API error normaliser ──────────────────────────────────────────────────────
+function extractErrorCode(err: unknown): number | undefined {
+  if (!err || typeof err !== "object") return undefined;
+
+  // Direct status / code properties
+  if ("status" in err && typeof (err as { status: unknown }).status === "number") {
+    return (err as { status: number }).status;
+  }
+  if ("code" in err && typeof (err as { code: unknown }).code === "number") {
+    return (err as { code: number }).code;
+  }
+
+  // Nested error object
+  if ("error" in err && typeof (err as { error: unknown }).error === "object" && (err as { error: unknown }).error !== null) {
+    const inner = (err as { error: Record<string, unknown> }).error;
+    if (typeof inner["code"] === "number") return inner["code"];
+    if (typeof inner["status"] === "number") return inner["status"];
+    if (inner["status"] === "UNAVAILABLE") return 503;
+    if (inner["status"] === "RESOURCE_EXHAUSTED") return 429;
+  }
+
+  // Stringified JSON in error message
+  if ("message" in err && typeof (err as { message: unknown }).message === "string") {
+    const msg = (err as { message: string }).message;
+    try {
+      const parsed = JSON.parse(msg);
+      if (parsed?.error?.code) return Number(parsed.error.code);
+      if (parsed?.error?.status === "UNAVAILABLE") return 503;
+      if (parsed?.error?.status === "RESOURCE_EXHAUSTED") return 429;
+    } catch {
+      if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand")) return 503;
+      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) return 429;
+      if (msg.includes("402")) return 402;
+    }
+  }
+
+  return undefined;
+}
 
 /**
- * Convert a Gemini SDK error to an AppError with a meaningful HTTP status.
- * Raw Gemini errors carry a numeric `code` (gRPC) mapped to HTTP statuses:
- *   429  → too many requests / quota exhausted  → 429
- *   503  → service unavailable                  → 503
- *   400  → bad request (schema, invalid model)  → 502 (upstream bad response)
- *   404  → model not found                      → 502
- *   default                                     → 502
+ * Retry helper for transient Gemini API errors (503 high demand, 429 rate limit).
  */
-function normaliseGeminiError(err: unknown): AppError {
-  if (err != null && typeof err === "object" && "error" in err) {
-    const inner = (err as { error: unknown }).error;
-    if (inner != null && typeof inner === "object" && "code" in inner) {
-      const code = (inner as { code: number }).code;
-      const msg = "message" in inner ? String((inner as { message: unknown }).message) : "";
-
-      if (code === 429 || code === 402) {
-        // Quota exhausted — surface to user so they can retry later.
-        return new AppError(429, "AI service quota exhausted. Please try again in a few moments.");
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, initialDelayMs = 1000): Promise<T> {
+  let attempt = 0;
+  let delay = initialDelayMs;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt++;
+      const code = extractErrorCode(err);
+      if (attempt <= maxRetries && (code === 503 || code === 429)) {
+        logger.warn(`Gemini call returned ${code}; retrying attempt ${attempt}/${maxRetries} after ${delay}ms`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+        continue;
       }
-      if (code === 503) {
-        return new AppError(503, "AI service temporarily unavailable. Please try again shortly.");
-      }
-      // Log non-quota upstream errors at error level without exposing internals.
-      logger.error("Gemini upstream error", msg);
+      throw err;
     }
+  }
+}
+
+function normaliseGeminiError(err: unknown): AppError {
+  const code = extractErrorCode(err);
+  if (code === 429 || code === 402) {
+    return new AppError(429, "AI service quota exhausted. Please try again in a few moments.");
+  }
+  if (code === 503) {
+    return new AppError(503, "AI service temporarily unavailable. Please try again shortly.");
   }
   logger.error("Gemini call failed", err);
   return new AppError(502, "AI service returned an unexpected error. Please try again.");
@@ -126,14 +166,16 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
   const jsonSchema = sanitizeForGemini(rawJsonSchema);
 
   try {
-    const response = await genai.models.generateContent({
-      model: GENERATION_MODEL,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: jsonSchema,
-      },
-    });
+    const response = await withRetry(() =>
+      genai.models.generateContent({
+        model: GENERATION_MODEL,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: jsonSchema,
+        },
+      }),
+    );
 
     const text = response.text;
     if (!text) {
@@ -154,10 +196,12 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
  */
 export async function embedText(text: string): Promise<number[]> {
   try {
-    const response = await genai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: [{ role: "user", parts: [{ text }] }],
-    });
+    const response = await withRetry(() =>
+      genai.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: [{ role: "user", parts: [{ text }] }],
+      }),
+    );
 
     const values = response.embeddings?.[0]?.values;
     if (!values || values.length === 0) {
