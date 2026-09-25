@@ -1,0 +1,43 @@
+.gcloudignore
+.git/
+.gitignore
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets and environment files
+.env
+.env.*
+*.env
+.env.local
+
+# Tests, coverage, and reports
+tests/
+**/tests/
+playwright-report/
+test-results/
+coverage/
+
+# Local build artifacts and caches
+dist/
+**/dist/
+build/
+**/build/
+.eslintcache
+*.tsbuildinfo
+graphify-out/
+.impeccable/
+
+# IDE and temp files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
