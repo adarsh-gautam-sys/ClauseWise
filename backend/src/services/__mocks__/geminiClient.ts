@@ -170,3 +170,22 @@ export async function generateStructured(prompt: string, _schema: z.ZodType): Pr
     ],
   });
 }
+
+/**
+ * Streaming mock for generateStructuredStream.
+ *
+ * Delegates to generateStructured to get the full JSON string, then yields it
+ * in small chunks (simulating incremental streaming from the Gemini API).
+ * This lets route tests exercise the full SSE pipeline without real network calls.
+ */
+export async function* generateStructuredStream(
+  prompt: string,
+  schema: z.ZodType,
+): AsyncGenerator<string> {
+  const full = await generateStructured(prompt, schema);
+  // Yield in chunks of ~40 characters to simulate streaming granularity.
+  const CHUNK_SIZE = 40;
+  for (let i = 0; i < full.length; i += CHUNK_SIZE) {
+    yield full.slice(i, i + CHUNK_SIZE);
+  }
+}

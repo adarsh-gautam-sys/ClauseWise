@@ -24,6 +24,7 @@ process.env["GEMINI_API_KEY"] = "mock-api-key-for-unit-testing";
 vi.mock("../src/services/geminiClient.js", () => {
   return {
     generateStructured: vi.fn(),
+    generateStructuredStream: vi.fn(),
     embedText: vi.fn().mockResolvedValue(new Array(768).fill(0.1)),
   };
 });
@@ -31,7 +32,25 @@ vi.mock("../src/services/geminiClient.js", () => {
 import app from "../src/app.js";
 import { buildClassifyPrompt } from "../src/prompts/classify.js";
 import { buildAnalyzePrompt } from "../src/prompts/analyze.js";
-import { generateStructured } from "../src/services/geminiClient.js";
+import { generateStructured, generateStructuredStream } from "../src/services/geminiClient.js";
+
+/**
+ * Helper: parse an SSE response body and extract the final `done` event payload.
+ * Returns the parsed JSON from the `event: done` line's data, or null if not found.
+ */
+async function parseSSEDoneEvent<T>(res: globalThis.Response): Promise<T | null> {
+  const text = await res.text();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] === "event: done" && i + 1 < lines.length) {
+      const dataLine = lines[i + 1];
+      if (dataLine?.startsWith("data: ")) {
+        return JSON.parse(dataLine.slice(6)) as T;
+      }
+    }
+  }
+  return null;
+}
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROMPT_INJECTION_DOC_PATH = join(
@@ -164,32 +183,38 @@ describe("Prompt Injection Resilience", () => {
     );
     await fetch(`${baseUrl}/api/documents/${documentId}/classify`, { method: "POST" });
 
-    // 3. Mock analyze returning structured clauses
-    vi.mocked(generateStructured).mockResolvedValueOnce(
-      JSON.stringify({
-        summary: "This is a standard non-disclosure agreement with strict confidentiality terms.",
-        clauses: [
-          {
-            clause_id: "CLAUSE_1",
-            section_reference: "1. Definition of Confidential Information",
-            plain_language_summary: "Defines proprietary information covered by the agreement.",
-            tag: "standard",
-            severity: "low",
-            why_it_matters: "Sets the scope of protected material.",
-          },
-          {
-            clause_id: "CLAUSE_2",
-            section_reference: "2. Obligations of Receiving Party",
-            plain_language_summary: "Requires reasonable care to keep information confidential.",
-            tag: "obligation",
-            severity: "medium",
-            why_it_matters: "Determines recipient duty and liability.",
-          },
-        ],
-      }),
+    // 3. Mock analyze returning structured clauses (via stream)
+    const analyzeJson = JSON.stringify({
+      summary: "This is a standard non-disclosure agreement with strict confidentiality terms.",
+      clauses: [
+        {
+          clause_id: "CLAUSE_1",
+          section_reference: "1. Definition of Confidential Information",
+          plain_language_summary: "Defines proprietary information covered by the agreement.",
+          tag: "standard",
+          severity: "low",
+          why_it_matters: "Sets the scope of protected material.",
+        },
+        {
+          clause_id: "CLAUSE_2",
+          section_reference: "2. Obligations of Receiving Party",
+          plain_language_summary: "Requires reasonable care to keep information confidential.",
+          tag: "obligation",
+          severity: "medium",
+          why_it_matters: "Determines recipient duty and liability.",
+        },
+      ],
+    });
+    vi.mocked(generateStructuredStream).mockReturnValueOnce(
+      (async function* () {
+        const CHUNK_SIZE = 40;
+        for (let i = 0; i < analyzeJson.length; i += CHUNK_SIZE) {
+          yield analyzeJson.slice(i, i + CHUNK_SIZE);
+        }
+      })(),
     );
 
-    // 4. Request analysis
+    // 4. Request analysis (now returns SSE stream)
     const analyzeRes = await fetch(`${baseUrl}/api/documents/${documentId}/analyze`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -197,10 +222,12 @@ describe("Prompt Injection Resilience", () => {
     });
 
     expect(analyzeRes.status).toBe(200);
-    const analyzeData = (await analyzeRes.json()) as {
+    const analyzeData = await parseSSEDoneEvent<{
       summary: string;
       clauses: Array<{ clause_id: string; severity: string }>;
-    };
+    }>(analyzeRes);
+    expect(analyzeData).not.toBeNull();
+    if (!analyzeData) throw new Error("Expected analyzeData to be defined");
     expect(analyzeData.summary).toContain("non-disclosure agreement");
     expect(analyzeData.clauses.length).toBe(2);
     expect(analyzeData.clauses[0]?.clause_id).toBeDefined();
@@ -414,21 +441,27 @@ describe("Endpoint Input Validation & Clear 4xx Errors", () => {
     );
     await fetch(`${baseUrl}/api/documents/${documentId}/classify`, { method: "POST" });
 
-    // 3. Analyze
-    vi.mocked(generateStructured).mockResolvedValueOnce(
-      JSON.stringify({
-        summary: "This is a brief summary.",
-        clauses: [
-          {
-            clause_id: "CLAUSE_1",
-            section_reference: "1. Term",
-            plain_language_summary: "The term is one year.",
-            tag: "standard",
-            severity: "low",
-            why_it_matters: "Standard term.",
-          },
-        ],
-      }),
+    // 3. Analyze (uses streaming mock)
+    const analyzeJson = JSON.stringify({
+      summary: "This is a brief summary.",
+      clauses: [
+        {
+          clause_id: "CLAUSE_1",
+          section_reference: "1. Term",
+          plain_language_summary: "The term is one year.",
+          tag: "standard",
+          severity: "low",
+          why_it_matters: "Standard term.",
+        },
+      ],
+    });
+    vi.mocked(generateStructuredStream).mockReturnValueOnce(
+      (async function* () {
+        const CHUNK_SIZE = 40;
+        for (let i = 0; i < analyzeJson.length; i += CHUNK_SIZE) {
+          yield analyzeJson.slice(i, i + CHUNK_SIZE);
+        }
+      })(),
     );
     await fetch(`${baseUrl}/api/documents/${documentId}/analyze`, { method: "POST" });
 

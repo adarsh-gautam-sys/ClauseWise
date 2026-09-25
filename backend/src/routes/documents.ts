@@ -31,13 +31,14 @@ import {
   setChunkEmbeddings,
   setClauseEmbeddings,
 } from "../lib/documentStore.js";
-import { generateStructured, embedText, embedTexts } from "../services/geminiClient.js";
-import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
 import {
-  buildAnalyzePrompt,
-  analysisResponseSchema,
-  type AnalysisResponse,
-} from "../prompts/analyze.js";
+  generateStructured,
+  generateStructuredStream,
+  embedText,
+  embedTexts,
+} from "../services/geminiClient.js";
+import { buildClassifyPrompt, classificationSchema } from "../prompts/classify.js";
+import { buildAnalyzePrompt, analysisResponseSchema } from "../prompts/analyze.js";
 import { buildAskPrompt, askResponseSchema } from "../prompts/ask.js";
 import { buildComparePrompt, compareResponseSchema, type AlignedPair } from "../prompts/compare.js";
 import { buildExportPrompt, exportResponseSchema } from "../prompts/export.js";
@@ -355,44 +356,28 @@ async function loadReferenceClauses(documentType: DocumentType): Promise<Record<
   }
 }
 
+// ── SSE helpers ──────────────────────────────────────────────────────────────
+
 /**
- * Call generateStructured and validate against analysisResponseSchema.
- * Retries once on a malformed or schema-invalid response, as required by
- * AGENTS.md ("reject and retry once on a malformed response").
- *
- * @throws AppError 502 if both the original call and the retry produce an
- *                      invalid response.
+ * Write an SSE "data" event to the response.
+ * Follows the text/event-stream spec: `data: <payload>\n\n`
  */
-async function generateAndValidateAnalysis(prompt: string): Promise<AnalysisResponse> {
-  async function attempt(): Promise<AnalysisResponse | null> {
-    const raw = await generateStructured(prompt, analysisResponseSchema);
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null; // Malformed JSON — signal retry.
-    }
-
-    const result = analysisResponseSchema.safeParse(parsed);
-    if (!result.success) {
-      return null; // Valid JSON but schema mismatch — signal retry.
-    }
-    return result.data;
+function sseData(res: Response, data: string): void {
+  res.write(`data: ${data}\n\n`);
+  if (typeof (res as unknown as { flush?: () => void }).flush === "function") {
+    (res as unknown as { flush: () => void }).flush();
   }
+}
 
-  // First attempt.
-  const first = await attempt();
-  if (first !== null) return first;
-
-  // Retry once (AGENTS.md requirement).
-  const second = await attempt();
-  if (second !== null) return second;
-
-  throw new AppError(
-    502,
-    "Analysis service returned an invalid response after retry. Please try again.",
-  );
+/**
+ * Write a named SSE event with JSON payload.
+ * Example output: `event: done\ndata: {"documentId":"...",...}\n\n`
+ */
+function sseEvent(res: Response, event: string, data: unknown): void {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  if (typeof (res as unknown as { flush?: () => void }).flush === "function") {
+    (res as unknown as { flush: () => void }).flush();
+  }
 }
 
 // ── Analyze rate limiter ───────────────────────────────────────────────────────
@@ -458,8 +443,6 @@ documentsRouter.post(
       }
 
       // ── Classification pre-check ─────────────────────────────────────────────
-      // Analysis requires the document type to be known, both to select the
-      // correct reference-clauses file and to give the model the right context.
 
       if (!doc.classification) {
         throw new AppError(
@@ -471,15 +454,13 @@ documentsRouter.post(
       const { document_type } = doc.classification;
 
       // ── Parse persona (PRD §7 decision engine) ───────────────────────────────
-      // Accept an optional `persona` field in the request body.
-      // parsePersona is safe to call on untrusted input — returns "unknown" for
-      // anything not in the allowed set, which degrades to severity order.
 
       const persona = parsePersona((req.body as Record<string, unknown> | undefined)?.["persona"]);
 
       // ── Fast cache check: re-score existing clauses without LLM call ─────────
       if (doc.analysis) {
         const prioritisedClauses = prioritizeClauses(doc.analysis.clauses, document_type, persona);
+        // Cached result — return as regular JSON (no streaming needed).
         res.status(200).json({
           documentId: id,
           document_type,
@@ -498,33 +479,82 @@ documentsRouter.post(
 
       const prompt = buildAnalyzePrompt(doc.fullText, document_type, referenceClauses);
 
-      // ── Call Gemini (with one retry on malformed response per AGENTS.md) ─────
+      // ── Stream response via SSE (PRD §12) ────────────────────────────────────
+      // Each text chunk from Gemini is forwarded as an SSE data event so the
+      // frontend can show a live progress indicator.  Once the full JSON is
+      // assembled, it is validated against the Zod schema before sending the
+      // final `done` event.  If validation fails, an `error` event is sent.
 
-      const analysis = await generateAndValidateAnalysis(prompt);
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders?.();
+
+      let assembled = "";
+      try {
+        for await (const chunk of generateStructuredStream(prompt, analysisResponseSchema)) {
+          assembled += chunk;
+          sseData(res, JSON.stringify({ chunk }));
+        }
+      } catch (streamErr) {
+        // Streaming failed — send error event and close.
+        const msg =
+          streamErr instanceof AppError
+            ? streamErr.message
+            : "Analysis service encountered an error. Please try again.";
+        sseEvent(res, "error", { error: msg });
+        res.end();
+        return;
+      }
+
+      // ── Validate fully assembled response ──────────────────────────────────
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(assembled);
+      } catch {
+        sseEvent(res, "error", {
+          error: "Analysis service returned an unexpected response. Please try again.",
+        });
+        res.end();
+        return;
+      }
+
+      const result = analysisResponseSchema.safeParse(parsed);
+      if (!result.success) {
+        sseEvent(res, "error", {
+          error: "Analysis service returned an invalid response. Please try again.",
+        });
+        res.end();
+        return;
+      }
+
+      const analysis = result.data;
 
       // ── Apply persona-aware priority ordering (PRD §7) ───────────────────────
-      // Pure, deterministic reordering — no further LLM calls.
-      // Priority clauses for the (documentType, persona) pair surface first;
-      // remaining clauses fall back to severity order (high → medium → low).
 
       const prioritisedClauses = prioritizeClauses(analysis.clauses, document_type, persona);
 
       // ── Persist on the document record ───────────────────────────────────────
-      // Store the reordered analysis so downstream routes (Q&A, checklist) see
-      // the same clause ordering.
 
       setAnalysis(id, { ...analysis, clauses: prioritisedClauses });
 
-      // ── Respond ──────────────────────────────────────────────────────────────
+      // ── Send validated final payload ──────────────────────────────────────────
 
-      res.status(200).json({
+      sseEvent(res, "done", {
         documentId: id,
         document_type,
         persona,
         summary: analysis.summary,
         clauses: prioritisedClauses,
       });
+
+      res.end();
     } catch (err) {
+      // Pre-stream errors (404, 400) go through next() for normal JSON errors.
       next(err);
     }
   },
@@ -618,17 +648,12 @@ documentsRouter.post(
       }
 
       // ── Lazy chunk embedding (cache on first call, reuse on subsequent) ─────
-      // Chunks are embedded sequentially to stay within the free-tier rate
-      // limit (15 req/min).  The embeddings are cached on the document record
-      // so this block runs at most ONCE per uploaded document — PRD §12.
 
       let chunkEmbeddings: number[][];
 
       if (doc.chunkEmbeddings) {
-        // Cached from a previous /ask call — skip re-embedding.
         chunkEmbeddings = doc.chunkEmbeddings;
       } else {
-        // First question for this document — embed all chunks with bounded parallel pool.
         const texts = doc.chunks.map((c) => c.text);
         const embeddings = await embedTexts(texts);
         setChunkEmbeddings(id, embeddings);
@@ -636,8 +661,6 @@ documentsRouter.post(
       }
 
       // ── Embed the question ──────────────────────────────────────────────────
-      // AGENTS.md rule: question text is NOT logged — embedText receives only
-      // the raw string and no log statement references it.
 
       const questionEmbedding = await embedText(question);
 
@@ -645,36 +668,71 @@ documentsRouter.post(
 
       const topChunks = topKChunks(questionEmbedding, chunkEmbeddings, doc.chunks, TOP_K);
 
-      // ── Build prompt and call Gemini ────────────────────────────────────────
+      // ── Build prompt ────────────────────────────────────────────────────────
 
       const documentType = doc.classification?.document_type ?? "other";
       const prompt = buildAskPrompt(question, topChunks, documentType);
 
-      const rawResponse = await generateStructured(prompt, askResponseSchema);
+      // ── Stream response via SSE (PRD §12) ────────────────────────────────────
 
-      // ── Parse and validate (AGENTS.md: validate every LLM response) ─────────
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      res.flushHeaders?.();
+
+      let assembled = "";
+      try {
+        for await (const chunk of generateStructuredStream(prompt, askResponseSchema)) {
+          assembled += chunk;
+          sseData(res, JSON.stringify({ chunk }));
+        }
+      } catch (streamErr) {
+        const msg =
+          streamErr instanceof AppError
+            ? streamErr.message
+            : "Q&A service encountered an error. Please try again.";
+        sseEvent(res, "error", { error: msg });
+        res.end();
+        return;
+      }
+
+      // ── Validate fully assembled response ──────────────────────────────────
 
       let parsed: unknown;
       try {
-        parsed = JSON.parse(rawResponse);
+        parsed = JSON.parse(assembled);
       } catch {
-        throw new AppError(502, "Q&A service returned an unexpected response. Please try again.");
+        sseEvent(res, "error", {
+          error: "Q&A service returned an unexpected response. Please try again.",
+        });
+        res.end();
+        return;
       }
 
       const result = askResponseSchema.safeParse(parsed);
       if (!result.success) {
-        throw new AppError(502, "Q&A service returned an invalid response. Please try again.");
+        sseEvent(res, "error", {
+          error: "Q&A service returned an invalid response. Please try again.",
+        });
+        res.end();
+        return;
       }
 
-      // ── Respond ─────────────────────────────────────────────────────────────
+      // ── Send validated final payload ──────────────────────────────────────────
 
-      res.status(200).json({
+      sseEvent(res, "done", {
         documentId: id,
         answer: result.data.answer,
         cited_sections: result.data.cited_sections,
         in_scope: result.data.in_scope,
       });
+
+      res.end();
     } catch (err) {
+      // Pre-stream errors (404, 400) go through next() for normal JSON errors.
       next(err);
     }
   },

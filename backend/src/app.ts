@@ -38,7 +38,29 @@ const app = express();
 app.set("trust proxy", 1);
 
 // HTTP payload compression (gzip/deflate) — reduces wire transfer sizes by ~75%
-app.use(compression());
+// Exclude SSE streaming endpoints (/analyze and /ask) because compression buffers
+// the full response before gzipping, defeating real-time chunk streaming.
+app.use(
+  compression({
+    filter: (req: Request, res: Response) => {
+      // Exclude text/event-stream requests
+      if (req.headers["accept"] === "text/event-stream") {
+        return false;
+      }
+      // Exclude /analyze and /ask routes specifically
+      const url = req.originalUrl || req.path;
+      if (/\/api\/documents\/[^/]+\/(analyze|ask)/.test(url)) {
+        return false;
+      }
+      // Exclude if response content-type is already text/event-stream
+      const contentType = res.getHeader("Content-Type") || res.getHeader("content-type");
+      if (typeof contentType === "string" && contentType.includes("text/event-stream")) {
+        return false;
+      }
+      return compression.filter(req, res);
+    },
+  }),
+);
 
 // CORS — restricted to frontend's dev origin (defense in depth in production)
 app.use(

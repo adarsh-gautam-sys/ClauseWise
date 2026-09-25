@@ -22,8 +22,17 @@
  * ARIA live region (role="log") announces every new AI answer.
  */
 
-import { useState, useRef, useEffect, useId, useCallback } from "react";
-import { Send, Loader2, BookOpen, AlertTriangle, PlusCircle, Check, RotateCcw } from "lucide-react";
+import { useState, useRef, useEffect, useId, useCallback, memo } from "react";
+import {
+  Send,
+  Loader2,
+  BookOpen,
+  AlertTriangle,
+  PlusCircle,
+  Check,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -268,7 +277,7 @@ export interface ChatPanelProps {
   outOfScopeAdded: Set<string>;
 }
 
-export function ChatPanel({
+export const ChatPanel = memo(function ChatPanel({
   documentId,
   clauses,
   onScrollToClause,
@@ -278,6 +287,15 @@ export function ChatPanel({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+  const [streamStatus, setStreamStatus] = useState<{
+    isStreaming: boolean;
+    chunkCount: number;
+    partialAnswer: string;
+  }>({ isStreaming: false, chunkCount: 0, partialAnswer: "" });
   const [lastAnswer, setLastAnswer] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -298,7 +316,7 @@ export function ChatPanel({
 
   const sendQuestion = useCallback(
     async (question: string, replaceErrorId?: string) => {
-      if (!question || loading) return;
+      if (!question || loadingRef.current) return;
 
       // Cancel any previous in-flight request
       abortRef.current?.abort();
@@ -315,9 +333,32 @@ export function ChatPanel({
       }
 
       setLoading(true);
+      setStreamStatus({ isStreaming: false, chunkCount: 0, partialAnswer: "" });
 
       try {
-        const result = await askQuestion(documentId, question, controller.signal);
+        let accumulatedRaw = "";
+        const stream = askQuestion(documentId, question, {
+          signal: controller.signal,
+          onChunk: (chunk: string) => {
+            accumulatedRaw += chunk;
+            const match = accumulatedRaw.match(/"answer"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)/);
+            let partial = "";
+            if (match) {
+              try {
+                partial = JSON.parse(`"${match[1]}"`);
+              } catch {
+                partial = match[1];
+              }
+            }
+            setStreamStatus((prev) => ({
+              isStreaming: true,
+              chunkCount: prev.chunkCount + 1,
+              partialAnswer: partial,
+            }));
+          },
+        });
+
+        const result = await stream.result;
         if (controller.signal.aborted) return;
 
         const assistantMsg: ChatMessage = {
@@ -342,10 +383,13 @@ export function ChatPanel({
         };
         setMessages((prev) => [...prev, errorMsg]);
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setStreamStatus({ isStreaming: false, chunkCount: 0, partialAnswer: "" });
+        }
       }
     },
-    [documentId, loading],
+    [documentId],
   );
 
   const handleSend = () => {
@@ -425,22 +469,65 @@ export function ChatPanel({
             );
           })}
 
-          {/* Loading indicator */}
+          {/* Loading / Streaming indicator */}
           {loading && (
-            <div
-              className="flex items-center gap-2 px-1"
-              role="status"
-              aria-label="AI is generating an answer"
-            >
-              <Loader2
-                size={14}
-                className="animate-spin"
-                style={{ color: "var(--primary)" }}
-                aria-hidden="true"
-              />
-              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                Thinking…
-              </span>
+            <div className="flex flex-col gap-2">
+              {streamStatus.partialAnswer ? (
+                <div
+                  className="flex max-w-[85%] flex-col gap-2 rounded-2xl rounded-tl-sm border p-4 shadow-xs"
+                  style={{
+                    background: "var(--card)",
+                    borderColor: "var(--border)",
+                  }}
+                  role="status"
+                  aria-label="AI is generating an answer"
+                >
+                  <div
+                    className="flex items-center gap-1.5 text-xs font-medium"
+                    style={{ color: "var(--primary)" }}
+                  >
+                    <Sparkles size={13} className="animate-pulse" aria-hidden="true" />
+                    <span>Streaming answer…</span>
+                  </div>
+                  <div
+                    className="whitespace-pre-wrap text-sm leading-relaxed"
+                    style={{ color: "var(--foreground)" }}
+                  >
+                    {streamStatus.partialAnswer}
+                    <span
+                      className="inline-block w-1.5 h-3.5 ml-1 animate-pulse align-middle"
+                      style={{ background: "var(--primary)" }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                    {streamStatus.chunkCount} chunk{streamStatus.chunkCount !== 1 ? "s" : ""}{" "}
+                    received
+                  </div>
+                </div>
+              ) : (
+                <div
+                  className="flex items-center gap-2 px-1"
+                  role="status"
+                  aria-label={
+                    streamStatus.isStreaming
+                      ? "AI is streaming an answer"
+                      : "AI is generating an answer"
+                  }
+                >
+                  <Loader2
+                    size={14}
+                    className="animate-spin"
+                    style={{ color: "var(--primary)" }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    {streamStatus.isStreaming
+                      ? `Receiving answer stream (${streamStatus.chunkCount} chunk${streamStatus.chunkCount !== 1 ? "s" : ""})…`
+                      : "Thinking…"}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -507,4 +594,4 @@ export function ChatPanel({
       </p>
     </div>
   );
-}
+});

@@ -16,6 +16,7 @@
  *   - SeverityBadge always pairs color with text label.
  */
 
+import { memo } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -75,7 +76,7 @@ interface ClauseCardProps {
   defaultOpen?: boolean;
 }
 
-function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
+const ClauseCard = memo(function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
   return (
     <AccordionItem
       value={clause.clause_id}
@@ -137,7 +138,7 @@ function ClauseCard({ clause, defaultOpen = false }: ClauseCardProps) {
       </AccordionContent>
     </AccordionItem>
   );
-}
+});
 
 // ── Accordion list ────────────────────────────────────────────────────────────
 
@@ -145,7 +146,7 @@ interface ClauseAccordionProps {
   clauses: Clause[];
 }
 
-export function ClauseAccordion({ clauses }: ClauseAccordionProps) {
+export const ClauseAccordion = memo(function ClauseAccordion({ clauses }: ClauseAccordionProps) {
   if (clauses.length === 0) {
     return (
       <p className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
@@ -169,4 +170,4 @@ export function ClauseAccordion({ clauses }: ClauseAccordionProps) {
       ))}
     </Accordion>
   );
-}
+});

@@ -61,7 +61,11 @@ function extractErrorCode(err: unknown): number | undefined {
   }
 
   // Nested error object
-  if ("error" in err && typeof (err as { error: unknown }).error === "object" && (err as { error: unknown }).error !== null) {
+  if (
+    "error" in err &&
+    typeof (err as { error: unknown }).error === "object" &&
+    (err as { error: unknown }).error !== null
+  ) {
     const inner = (err as { error: Record<string, unknown> }).error;
     if (typeof inner["code"] === "number") return inner["code"];
     if (typeof inner["status"] === "number") return inner["status"];
@@ -78,8 +82,10 @@ function extractErrorCode(err: unknown): number | undefined {
       if (parsed?.error?.status === "UNAVAILABLE") return 503;
       if (parsed?.error?.status === "RESOURCE_EXHAUSTED") return 429;
     } catch {
-      if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand")) return 503;
-      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) return 429;
+      if (msg.includes("503") || msg.includes("UNAVAILABLE") || msg.includes("high demand"))
+        return 503;
+      if (msg.includes("429") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota"))
+        return 429;
       if (msg.includes("402")) return 402;
     }
   }
@@ -90,7 +96,11 @@ function extractErrorCode(err: unknown): number | undefined {
 /**
  * Retry helper for transient Gemini API errors (503 high demand, 429 rate limit).
  */
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, initialDelayMs = 1000): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries = 2,
+  initialDelayMs = 1000,
+): Promise<T> {
   let attempt = 0;
   let delay = initialDelayMs;
   while (true) {
@@ -100,7 +110,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, initialDelayMs
       attempt++;
       const code = extractErrorCode(err);
       if (attempt <= maxRetries && (code === 503 || code === 429)) {
-        logger.info(`Gemini call returned ${code}; retrying attempt ${attempt}/${maxRetries} after ${delay}ms`);
+        logger.info(
+          `Gemini call returned ${code}; retrying attempt ${attempt}/${maxRetries} after ${delay}ms`,
+        );
         await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2;
         continue;
@@ -199,6 +211,74 @@ export async function generateStructured(prompt: string, schema: z.ZodType): Pro
       throw new AppError(502, "AI service returned an empty response. Please try again.");
     }
     return text;
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    throw normaliseGeminiError(err);
+  }
+}
+
+/**
+ * Generate structured JSON output as an async iterable of text chunks.
+ *
+ * Uses generateContentStream with the same responseSchema/JSON config
+ * as generateStructured — Gemini streams incremental text fragments of the
+ * eventual JSON rather than buffering a single blob. The caller is
+ * responsible for assembling the chunks and validating the complete JSON
+ * against the Zod schema once the stream ends.
+ *
+ * @param prompt  The full prompt string (assembled by a prompt template).
+ * @param schema  A Zod schema; Gemini is instructed to return JSON conforming
+ *                to it.  Validation happens on the fully assembled response,
+ *                not per-chunk.
+ * @returns       An async iterable that yields text chunks as they arrive.
+ */
+export async function* generateStructuredStream(
+  prompt: string,
+  schema: z.ZodType,
+): AsyncGenerator<string> {
+  const rawJsonSchema = z.toJSONSchema(schema);
+  const jsonSchema = sanitizeForGemini(rawJsonSchema);
+
+  const streamModel = (model: string) =>
+    withRetry(() =>
+      genai.models.generateContentStream({
+        model,
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: jsonSchema,
+        },
+      }),
+    );
+
+  try {
+    let stream: AsyncGenerator<{ text?: string | null }>;
+    try {
+      stream = await streamModel(GENERATION_MODEL);
+    } catch (primaryErr) {
+      const code = extractErrorCode(primaryErr);
+      if (code === 429 || code === 503) {
+        logger.info(
+          `Primary model ${GENERATION_MODEL} returned ${code}; attempting fallback model ${FALLBACK_GENERATION_MODEL} (stream)`,
+        );
+        stream = await streamModel(FALLBACK_GENERATION_MODEL);
+      } else {
+        throw primaryErr;
+      }
+    }
+
+    let hasContent = false;
+    for await (const chunk of stream) {
+      const text = chunk.text;
+      if (text) {
+        hasContent = true;
+        yield text;
+      }
+    }
+
+    if (!hasContent) {
+      throw new AppError(502, "AI service returned an empty response. Please try again.");
+    }
   } catch (err) {
     if (err instanceof AppError) throw err;
     throw normaliseGeminiError(err);

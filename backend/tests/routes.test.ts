@@ -10,6 +10,24 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import app from "../src/app.js";
 
+/**
+ * Helper: parse an SSE response body and extract the final `done` event payload.
+ * The SSE spec sends named events as `event: <name>\ndata: <payload>\n\n`.
+ */
+async function parseSSEDoneEvent<T>(res: globalThis.Response): Promise<T | null> {
+  const text = await res.text();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] === "event: done" && i + 1 < lines.length) {
+      const dataLine = lines[i + 1];
+      if (dataLine?.startsWith("data: ")) {
+        return JSON.parse(dataLine.slice(6)) as T;
+      }
+    }
+  }
+  return null;
+}
+
 describe("Backend Routes Integration Suite (Parts 2 to 8)", () => {
   let server: Server;
   let baseUrl: string;
@@ -162,7 +180,10 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    expect(res.headers.get("cache-control")).toContain("no-transform");
+
+    const body = await parseSSEDoneEvent<{
       documentId: string;
       document_type: string;
       persona: string;
@@ -175,8 +196,10 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
         severity: string;
         why_it_matters: string;
       }>;
-    };
+    }>(res);
 
+    expect(body).not.toBeNull();
+    if (!body) throw new Error("Expected SSE done event body");
     expect(body.documentId).toBe(docAId);
     expect(body.document_type).toBe("lease");
     expect(body.persona).toBe("tenant");
@@ -199,7 +222,9 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { clauses: unknown[] };
+    const body = await parseSSEDoneEvent<{ clauses: unknown[] }>(res);
+    expect(body).not.toBeNull();
+    if (!body) throw new Error("Expected SSE done event body");
     expect(body.clauses.length).toBeGreaterThan(0);
   });
 
@@ -213,13 +238,18 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+    expect(res.headers.get("cache-control")).toContain("no-transform");
+
+    const body = await parseSSEDoneEvent<{
       documentId: string;
       answer: string;
       cited_sections: string[];
       in_scope: boolean;
-    };
+    }>(res);
 
+    expect(body).not.toBeNull();
+    if (!body) throw new Error("Expected SSE done event body");
     expect(body.documentId).toBe(docAId);
     expect(body.in_scope).toBe(true);
     expect(body.answer).toContain("security deposit");
@@ -234,13 +264,15 @@ Landlord must provide at least 24 hours advance notice prior to entering the pre
     });
 
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
+    const body = await parseSSEDoneEvent<{
       documentId: string;
       answer: string;
       cited_sections: string[];
       in_scope: boolean;
-    };
+    }>(res);
 
+    expect(body).not.toBeNull();
+    if (!body) throw new Error("Expected SSE done event body");
     expect(body.documentId).toBe(docAId);
     expect(body.in_scope).toBe(false);
     expect(body.cited_sections).toEqual([]);

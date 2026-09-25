@@ -72,9 +72,7 @@ export function UploadScreen({
 
     try {
       const result =
-        mode === "file" && file
-          ? await uploadFile(file)
-          : await uploadText(text.trim());
+        mode === "file" && file ? await uploadFile(file) : await uploadText(text.trim());
 
       onSuccess(result);
     } catch (err) {

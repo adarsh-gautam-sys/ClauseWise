@@ -55,7 +55,12 @@ function App() {
   };
 
   const handleAddOutOfScope = useCallback((question: string) => {
-    setOutOfScopeAdded((prev) => new Set([...prev, question]));
+    setOutOfScopeAdded((prev) => {
+      if (prev.has(question)) return prev;
+      const next = new Set(prev);
+      next.add(question);
+      return next;
+    });
     setOutOfScopeQs((prev) => (prev.includes(question) ? prev : [...prev, question]));
   }, []);
 

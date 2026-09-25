@@ -33,12 +33,13 @@ interface UnderstandPageProps {
   outOfScopeQs: string[];
 }
 
-type Step = "idle" | "classifying" | "analyzing" | "done" | "error";
+type Step = "idle" | "classifying" | "analyzing" | "streaming" | "done" | "error";
 
 const STEP_LABELS: Record<Step, string> = {
   idle: "",
   classifying: "Identifying document type…",
-  analyzing: "Extracting and prioritizing clauses…",
+  analyzing: "Starting clause analysis…",
+  streaming: "Extracting and prioritizing clauses…",
   done: "Analysis complete",
   error: "",
 };
@@ -75,6 +76,7 @@ export function UnderstandPage({
 }: UnderstandPageProps) {
   const [step, setStep] = useState<Step>(analysisResult ? "done" : "idle");
   const [error, setError] = useState<string | null>(null);
+  const [chunkCount, setChunkCount] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
   const liveId = useId();
 
@@ -85,6 +87,7 @@ export function UnderstandPage({
 
   const runAnalysis = async () => {
     setError(null);
+    setChunkCount(0);
     // Create a fresh abort controller for this run
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -97,7 +100,15 @@ export function UnderstandPage({
       if (signal.aborted) return;
 
       setStep("analyzing");
-      const result = await analyzeDocument(uploadResult.documentId, persona || "unknown", signal);
+      const stream = analyzeDocument(uploadResult.documentId, persona || "unknown", {
+        signal,
+        onChunk: () => {
+          setStep("streaming");
+          setChunkCount((c) => c + 1);
+        },
+      });
+
+      const result = await stream.result;
       if (signal.aborted) return;
 
       onAnalysisComplete(result);
@@ -168,6 +179,26 @@ export function UnderstandPage({
               <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
                 {STEP_LABELS[step]}
               </p>
+              {step === "streaming" && (
+                <div className="flex items-center gap-1.5" aria-label="Receiving data from AI">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{
+                        background: "var(--primary)",
+                        animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
+                      }}
+                    />
+                  ))}
+                  <span
+                    className="ml-1 text-xs tabular-nums"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    {chunkCount} chunk{chunkCount !== 1 ? "s" : ""} received
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Two-step progress */}
@@ -178,7 +209,10 @@ export function UnderstandPage({
                     <div
                       className="h-px w-6"
                       style={{
-                        background: step === "analyzing" ? "var(--severity-low)" : "var(--border)",
+                        background:
+                          step === "analyzing" || step === "streaming"
+                            ? "var(--severity-low)"
+                            : "var(--border)",
                       }}
                     />
                   )}
@@ -187,9 +221,9 @@ export function UnderstandPage({
                       className="h-2 w-2 rounded-full transition-colors duration-500"
                       style={{
                         background:
-                          step === s
+                          step === s || (s === "analyzing" && step === "streaming")
                             ? "var(--primary)"
-                            : s === "classifying" && step === "analyzing"
+                            : s === "classifying" && (step === "analyzing" || step === "streaming")
                               ? "var(--severity-low)"
                               : "var(--border)",
                       }}
